@@ -4,6 +4,24 @@ O editor publicado em <https://lqtsm.com.br/editor-equacoes/> empacotado com Ele
 para rodar offline. A interface é o `index.html` do site, sem alterações além das
 trocas de URL (bibliotecas e fontes locais) e da frase do rodapé.
 
+## Instalar
+
+Baixe a versão mais recente em [Releases](https://github.com/lqtsm/editor-equacoes/releases/latest):
+
+- **Ubuntu, Debian, Mint** (`.deb`):
+  ```bash
+  sudo apt install ./editor-equacoes-lqtsm_amd64.deb
+  ```
+  O programa aparece no menu de aplicativos como "Editor de equações - LQTSM".
+- **Qualquer Linux** (AppImage, sem instalar):
+  ```bash
+  chmod +x editor-equacoes-lqtsm_x86_64.AppImage
+  ./editor-equacoes-lqtsm_x86_64.AppImage
+  ```
+
+Só para x86_64 (64 bits, Intel/AMD). Ou use direto no navegador:
+<https://lqtsm.com.br/editor-equacoes/>.
+
 ```
 main.js                 processo principal: protocolo app://, janela, downloads, links, clipboard
 preload.js              contextBridge (reserva de área de transferência)
