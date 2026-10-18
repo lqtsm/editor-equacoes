@@ -9,6 +9,7 @@ main.js                 processo principal: protocolo app://, janela, downloads,
 preload.js              contextBridge (reserva de área de transferência)
 app/index.html          a página do site, sincronizada por scripts/sincronizar_index.sh
 app/fontes-edicao/      fontes do campo de edição (STIX Two, Pagella, Asana), copiadas do site
+app/idiomas.js          traduções da interface (inglês, espanhol, chinês), copiada do site
 app/vendor/             MathLive 0.110.0, MathJax 4.1.3 + fontes (TeX, STIX Two, Pagella, Asana),
                         IBM Plex (gerado no npm install)
 scripts/copiar_vendor.js   copia de node_modules para app/vendor (postinstall)
@@ -87,3 +88,17 @@ mudar, acrescente o pacote `@mathjax/mathjax-<fonte>-font` em `package.json` e o
 - **Janela**: título "Editor de equações - LQTSM", 1100×900 inicial, mínimo 420×600,
   tamanho e posição lembrados, sem barra de menu mas com Ctrl+C/V/X/Z/A e Ctrl+= / Ctrl+− /
   Ctrl+0; instância única; DevTools só com `EDITOR_DEBUG=1`.
+
+## Idiomas
+
+A interface vem em inglês (padrão), português, espanhol e chinês; o usuário escolhe em
+**Configurações** (botão ⚙ no topo), junto com o tema, a fonte padrão, as convenções de saída
+e o que aparece na barra da seleção. Tudo fica guardado no `localStorage`.
+
+- O texto em português do código é a chave: `tr("Passo removido.")` devolve a tradução de
+  `idiomas.js` (`window.IDIOMAS_EDITOR.en/.es/.zh`). No HTML, `data-i18n` marca o conteúdo e
+  `data-i18n-title`/`-aria-label`/`-placeholder` os atributos.
+- Texto novo na página precisa de entrada nos três idiomas de `idiomas.js` (no site, ao lado do
+  `index.html`); o **teste 12** falha listando o que falta.
+- O programa de desktop traduz o título da janela, o menu e o "Salvar como" (`TEXTOS` em
+  `main.js`); a página avisa o idioma por `lqtsmNativo.definirIdioma` (`preload.js`).

@@ -11,7 +11,29 @@
    CONFIGURACAO
    --------------------------------------------------------------------- */
 const NOME_APP = "editor-equacoes-lqtsm";          // ~/.config/editor-equacoes-lqtsm/
-const TITULO = "Editor de equações - LQTSM";
+// Textos do proprio programa (janela, "Salvar como", menu), no idioma que a
+// pagina escolhe (ela avisa por lqtsmNativo.definirIdioma; ver preload.js)
+const TEXTOS = {
+  en: { titulo: "Equation editor - LQTSM", salvar: "Save {fmt}", imagem: "{fmt} image",
+    editar: "Edit", desfazer: "Undo", refazer: "Redo", recortar: "Cut", copiar: "Copy", colar: "Paste", selecionarTudo: "Select all",
+    ver: "View", aumentar: "Zoom in", diminuir: "Zoom out", normal: "Actual size", telaCheia: "Full screen", devtools: "Developer tools",
+    janela: "Window", minimizar: "Minimize", fechar: "Close" },
+  pt: { titulo: "Editor de equações - LQTSM", salvar: "Salvar {fmt}", imagem: "Imagem {fmt}",
+    editar: "Editar", desfazer: "Desfazer", refazer: "Refazer", recortar: "Recortar", copiar: "Copiar", colar: "Colar", selecionarTudo: "Selecionar tudo",
+    ver: "Ver", aumentar: "Aumentar", diminuir: "Diminuir", normal: "Tamanho normal", telaCheia: "Tela cheia", devtools: "Ferramentas de desenvolvedor",
+    janela: "Janela", minimizar: "Minimizar", fechar: "Fechar" },
+  es: { titulo: "Editor de ecuaciones - LQTSM", salvar: "Guardar {fmt}", imagem: "Imagen {fmt}",
+    editar: "Editar", desfazer: "Deshacer", refazer: "Rehacer", recortar: "Cortar", copiar: "Copiar", colar: "Pegar", selecionarTudo: "Seleccionar todo",
+    ver: "Ver", aumentar: "Ampliar", diminuir: "Reducir", normal: "Tamaño real", telaCheia: "Pantalla completa", devtools: "Herramientas de desarrollo",
+    janela: "Ventana", minimizar: "Minimizar", fechar: "Cerrar" },
+  zh: { titulo: "公式编辑器 - LQTSM", salvar: "保存 {fmt}", imagem: "{fmt} 图像",
+    editar: "编辑", desfazer: "撤销", refazer: "重做", recortar: "剪切", copiar: "复制", colar: "粘贴", selecionarTudo: "全选",
+    ver: "视图", aumentar: "放大", diminuir: "缩小", normal: "实际大小", telaCheia: "全屏", devtools: "开发者工具",
+    janela: "窗口", minimizar: "最小化", fechar: "关闭" },
+};
+const IDIOMA_PADRAO = "en";
+let idiomaAtual = IDIOMA_PADRAO;                    // lido do estado salvo ao abrir
+const texto = (chave, fmt) => (TEXTOS[idiomaAtual] || TEXTOS[IDIOMA_PADRAO])[chave].replace("{fmt}", fmt || "");
 const ESQUEMA = "app";                             // app://editor/index.html
 const HOST = "editor";
 const SITE = "https://lqtsm.com.br/";                // base dos links relativos da pagina (../materiais.html)
@@ -99,12 +121,11 @@ function ligarDownloads(sessao) {
       ? estado.pastaDownload
       : app.getPath("pictures");
     const ehSvg = /\.svg$/i.test(nome);
+    const formato = ehSvg ? "SVG" : "PNG";
     const resultado = dialog.showSaveDialogSync(janela, {
-      title: "Salvar " + (ehSvg ? "SVG" : "PNG"),
+      title: texto("salvar", formato),
       defaultPath: path.join(pasta, NOMES_SUGERIDOS.includes(nome) ? nome : nome),
-      filters: ehSvg
-        ? [{ name: "Imagem SVG", extensions: ["svg"] }]
-        : [{ name: "Imagem PNG", extensions: ["png"] }],
+      filters: [{ name: texto("imagem", formato), extensions: [ehSvg ? "svg" : "png"] }],
     });
     if (!resultado) { item.cancel(); return; }
     item.setSavePath(resultado);
@@ -141,6 +162,14 @@ function ligarClipboard() {
     return true;
   });
   ipcMain.handle("clipboard:temImagem", () => !clipboard.readImage().isEmpty());
+  // Idioma escolhido na pagina: titulo, menu e "Salvar como"; guardado para a proxima abertura
+  ipcMain.on("idioma", (_e, id) => {
+    if (!TEXTOS[id] || id === idiomaAtual) return;
+    idiomaAtual = id;
+    gravarEstado({ idioma: id });
+    if (janela) janela.setTitle(texto("titulo"));
+    instalarAtalhos();
+  });
   ipcMain.handle("clipboard:lerTexto", () => clipboard.readText());
 }
 
@@ -189,9 +218,10 @@ const PONTE_CLIPBOARD = String.raw`
 /* ---- Janela ---- */
 function criarJanela() {
   const estado = lerEstado();
+  if (TEXTOS[estado.idioma]) idiomaAtual = estado.idioma;
   const limites = limitesVisiveis(estado.janela) || {};
   janela = new BrowserWindow({
-    title: TITULO,
+    title: texto("titulo"),
     width: limites.width || TAMANHO_INICIAL.width,
     height: limites.height || TAMANHO_INICIAL.height,
     x: limites.x,
@@ -214,7 +244,7 @@ function criarJanela() {
   if (estado.janela && estado.janela.maximizada) janela.maximize();
 
   // Titulo fixo (a pagina tem o seu proprio <title>)
-  janela.on("page-title-updated", (e) => { e.preventDefault(); janela.setTitle(TITULO); });
+  janela.on("page-title-updated", (e) => { e.preventDefault(); janela.setTitle(texto("titulo")); });
 
   // Links externos: navegador padrao, nunca dentro da janela
   janela.webContents.setWindowOpenHandler(({ url }) => {
@@ -264,38 +294,39 @@ function criarJanela() {
 function instalarAtalhos() {
   const modelo = [
     {
-      label: "Editar",
+      label: texto("editar"),
       submenu: [
-        { role: "undo", label: "Desfazer" },
-        { role: "redo", label: "Refazer" },
+        { role: "undo", label: texto("desfazer") },
+        { role: "redo", label: texto("refazer") },
         { type: "separator" },
-        { role: "cut", label: "Recortar" },
-        { role: "copy", label: "Copiar" },
-        { role: "paste", label: "Colar" },
-        { role: "selectAll", label: "Selecionar tudo" },
+        { role: "cut", label: texto("recortar") },
+        { role: "copy", label: texto("copiar") },
+        { role: "paste", label: texto("colar") },
+        { role: "selectAll", label: texto("selecionarTudo") },
       ],
     },
     {
-      label: "Ver",
+      label: texto("ver"),
       submenu: [
-        { role: "zoomIn", label: "Aumentar", accelerator: "CommandOrControl+=" },
+        { role: "zoomIn", label: texto("aumentar"), accelerator: "CommandOrControl+=" },
         { role: "zoomIn", accelerator: "CommandOrControl+Plus", visible: false },
         { role: "zoomIn", accelerator: "CommandOrControl+numadd", visible: false },
-        { role: "zoomOut", label: "Diminuir", accelerator: "CommandOrControl+-" },
+        { role: "zoomOut", label: texto("diminuir"), accelerator: "CommandOrControl+-" },
         { role: "zoomOut", accelerator: "CommandOrControl+numsub", visible: false },
-        { role: "resetZoom", label: "Tamanho normal", accelerator: "CommandOrControl+0" },
+        { role: "resetZoom", label: texto("normal"), accelerator: "CommandOrControl+0" },
         { role: "resetZoom", accelerator: "CommandOrControl+num0", visible: false },
         { type: "separator" },
-        { role: "togglefullscreen", label: "Tela cheia" },
-        ...(DEBUG ? [{ role: "toggleDevTools", label: "Ferramentas de desenvolvedor" }] : []),
+        { role: "togglefullscreen", label: texto("telaCheia") },
+        ...(DEBUG ? [{ role: "toggleDevTools", label: texto("devtools") }] : []),
       ],
     },
-    { label: "Janela", submenu: [{ role: "minimize", label: "Minimizar" }, { role: "close", label: "Fechar" }] },
+    { label: texto("janela"), submenu: [{ role: "minimize", label: texto("minimizar") }, { role: "close", label: texto("fechar") }] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(modelo));
 }
 
 app.whenReady().then(() => {
+  if (TEXTOS[lerEstado().idioma]) idiomaAtual = lerEstado().idioma;   // menu ja no idioma salvo
   protocol.handle(ESQUEMA, tratarProtocolo);
   ligarDownloads(session.defaultSession);
   ligarClipboard();

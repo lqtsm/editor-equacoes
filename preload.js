@@ -1,9 +1,9 @@
 /* =====================================================================
    EDITOR DE EQUACOES | LQTSM - preload (contextBridge)
    ---------------------------------------------------------------------
-   Conjunto minimo de funcoes nativas, usado SO como reserva quando
-   navigator.clipboard falha. A pagina nao chama nada daqui diretamente:
-   o main.js injeta um envoltorio em navigator.clipboard que cai aqui.
+   Conjunto minimo de funcoes nativas: reserva da area de transferencia
+   (o main.js injeta um envoltorio em navigator.clipboard que cai aqui) e
+   o idioma da interface (a pagina chama definirIdioma ao abrir e ao trocar).
    ===================================================================== */
 "use strict";
 const { contextBridge, ipcRenderer } = require("electron");
@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld("lqtsmNativo", {
   // Usadas pelo teste automatizado para conferir a area de transferencia
   temImagem: () => ipcRenderer.invoke("clipboard:temImagem"),
   lerTexto: () => ipcRenderer.invoke("clipboard:lerTexto"),
+  // Idioma da interface: o programa traduz o titulo da janela, o menu e o "Salvar como"
+  definirIdioma: (id) => ipcRenderer.send("idioma", String(id)),
 });

@@ -74,7 +74,9 @@
       --erro: #a8322b;
       --ok: #2f6b3a;
       --raio: 4px;
-      --fonte-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      /* Chines: a IBM Plex nao tem os ideogramas; entram as fontes CJK do sistema */
+      --fonte-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", "Noto Sans CJK SC", "Noto Sans SC",
+        "PingFang SC", "Microsoft YaHei", sans-serif;
       --fonte-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
       color-scheme: light;
     }
@@ -383,6 +385,25 @@
     .escolha-desenho i { width: 0.6rem; height: 0.6rem; border-radius: 50%; }
     .realce { padding: 0 2px; font-weight: 500; background: #fff27a; color: #2b2d31; }
     button.link { padding: 0 0.2rem; font-size: inherit; color: var(--acento); text-decoration: underline; }
+
+    /* Janela de Configuracoes */
+    .configuracoes {
+      width: min(720px, calc(100vw - 32px));
+      max-height: calc(100vh - 48px);
+      padding: 1.1rem 1.25rem;
+      color: var(--texto);
+      background: var(--fundo);
+      border: 1px solid var(--linha-forte);
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    .configuracoes::backdrop { background: rgba(0, 0, 0, 0.35); }
+    .configuracoes h2 { margin: 0 0 0.75rem; font-size: 1.05rem; font-weight: 600; }
+    .config-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 0.75rem 1.5rem; }
+    .config-item { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; font-weight: 500; }
+    .config-item select, .config-item button { align-self: flex-start; }
+    .config-convencoes { margin-top: 1.25rem; }
+    .config-convencoes .dica { margin: 0.2rem 0 0.5rem; }
     .barra-selecao svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4;
       stroke-linecap: round; stroke-linejoin: round; }
 
@@ -780,6 +801,9 @@
     }
   </style>
 
+  <!-- Traducoes da interface (en, es, zh; o portugues esta no proprio codigo) -->
+  <script src="idiomas.js"></script>
+
   <!-- Bibliotecas por CDN, versoes fixadas. O MathJax NAO e carregado aqui:
        so entra na primeira exportacao (ver carregarMathJax). -->
   <!-- Folha de estilo estatica do MathLive: so para os rotulos das ferramentas
@@ -792,14 +816,15 @@
 <body>
   <main class="pagina">
 
-    <p class="trilha"><a href="../materiais.html#ferramentas">LQTSM · Materiais › Ferramentas</a>
+    <p class="trilha"><a href="../materiais.html#ferramentas" data-i18n>LQTSM · Materiais › Ferramentas</a>
       <span class="trilha-direita">
-        <label class="fonte-padrao">Fonte padrão
-          <select id="fonte-padrao" title="Fonte de todas as equações que seguem o padrão (na tela, no SVG e no PNG)"></select></label>
-        <button type="button" class="discreto tema" id="btn-tema" title="Alternar tema claro, escuro ou automático">Tema: automático</button>
+        <label class="fonte-padrao"><span data-i18n>Fonte padrão</span>
+          <select id="fonte-padrao" data-i18n-title title="Fonte de todas as equações que seguem o padrão (na tela, no SVG e no PNG)"></select></label>
+        <button type="button" class="discreto tema" id="btn-configuracoes" aria-haspopup="dialog"><span aria-hidden="true">⚙</span>
+          <span data-i18n>Configurações</span></button>
       </span></p>
-    <h1>Editor de equações</h1>
-    <p class="intro">Cada linha é um passo da demonstração: a equação à esquerda, a justificativa à direita.
+    <h1 data-i18n>Editor de equações</h1>
+    <p class="intro" data-i18n>Cada linha é um passo da demonstração: a equação à esquerda, a justificativa à direita.
       <kbd>/</kbd> cria fração, <kbd>^</kbd> e <kbd>_</kbd> criam expoente e índice, <kbd>\</kbd> abre um comando
       LaTeX, <kbd>Enter</kbd> abre um passo novo abaixo e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> copia o LaTeX do passo.
       Para uma equação só, use um passo só.</p>
@@ -808,42 +833,42 @@
          e o resto do que se faz com um trecho ficam na barra da selecao -->
     <div class="rapidas" id="rapidas" hidden>
       <div class="rapidas-linha" id="linha-recentes" hidden>
-        <span class="rotulo-inline">Recentes</span>
-        <div class="recentes" id="recentes" role="group" aria-label="Últimas ferramentas usadas"></div>
+        <span class="rotulo-inline" data-i18n>Recentes</span>
+        <div class="recentes" id="recentes" role="group" data-i18n-aria-label aria-label="Últimas ferramentas usadas"></div>
       </div>
       <div class="rapidas-linha">
-        <span class="rotulo-inline">Teclado</span>
+        <span class="rotulo-inline" data-i18n>Teclado</span>
         <button type="button" id="btn-teclado" aria-pressed="false" hidden>
-          <span aria-hidden="true">⌨</span> Teclado de símbolos</button>
-        <span class="dica"><strong>Selecione um trecho da equação</strong> para abrir a barra de formatação (cor,
+          <span aria-hidden="true">⌨</span> <span data-i18n>Teclado de símbolos</span></button>
+        <span class="dica"><span data-i18n><strong>Selecione um trecho da equação</strong> para abrir a barra de formatação (cor,
           negrito, parênteses, fração…). No teclado, a seleção também vira o argumento da ferramenta
-          (integrando, radicando, numerador…).
-          <button type="button" class="discreto link" id="btn-personalizar-barra">Escolher o que aparece na barra…</button></span>
+          (integrando, radicando, numerador…).</span>
+          <button type="button" class="discreto link" id="btn-personalizar-barra" data-i18n>Escolher o que aparece na barra…</button></span>
       </div>
     </div>
 
     <!-- PASSOS -->
     <section class="demo" aria-labelledby="titulo-demo">
-      <h2 class="rotulo" id="titulo-demo">Passos</h2>
+      <h2 class="rotulo" id="titulo-demo" data-i18n>Passos</h2>
       <!-- Os <math-field> dos passos sao criados pelo script, depois de apontar
            as fontes do MathLive para o CDN (ver iniciarCampo). -->
       <ol class="passos" id="passos"></ol>
       <p class="aviso-campo" id="aviso-mathlive" hidden></p>
 
       <div class="acoes">
-        <button type="button" class="principal" id="btn-passo-vazio">Novo passo</button>
-        <button type="button" id="btn-passo-importar" aria-expanded="false" aria-controls="importar">Importar de LaTeX…</button>
+        <button type="button" class="principal" id="btn-passo-vazio" data-i18n>Novo passo</button>
+        <button type="button" id="btn-passo-importar" aria-expanded="false" aria-controls="importar" data-i18n>Importar de LaTeX…</button>
         <span class="separador"></span>
-        <button type="button" class="discreto" id="btn-demo-limpar">Limpar tudo</button>
+        <button type="button" class="discreto" id="btn-demo-limpar" data-i18n>Limpar tudo</button>
       </div>
 
       <div class="importar" id="importar" hidden>
-        <label class="rotulo" for="importar-texto">Cole um ambiente align (ou linhas separadas por \\)</label>
-        <textarea id="importar-texto" spellcheck="false" rows="4"
+        <label class="rotulo" for="importar-texto" data-i18n>Cole um ambiente align (ou linhas separadas por \\)</label>
+        <textarea id="importar-texto" spellcheck="false" rows="4" data-i18n-placeholder
           placeholder="\begin{align}&#10;  x &= y && \text{hipótese} \\&#10;  2x &= 2y && \text{multiplicando por 2}&#10;\end{align}"></textarea>
         <div class="acoes">
-          <button type="button" id="btn-importar-ok">Acrescentar como passos</button>
-          <button type="button" class="discreto" id="btn-importar-fechar">Fechar</button>
+          <button type="button" id="btn-importar-ok" data-i18n>Acrescentar como passos</button>
+          <button type="button" class="discreto" id="btn-importar-fechar" data-i18n>Fechar</button>
         </div>
       </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
@@ -852,7 +877,7 @@
            passo o abre logo abaixo daquele passo (ver posicionarPainelLatex).
            Sem MathLive, fica aqui, aberto, com a sua propria barra. -->
       <div class="painel-latex" id="painel-latex" hidden>
-        <label class="rotulo" for="latex" id="titulo-passo">LaTeX do passo <span id="n-passo">1</span></label>
+        <label class="rotulo" for="latex" id="titulo-passo"><span data-i18n>LaTeX do passo</span> <span id="n-passo">1</span></label>
         <textarea id="latex" spellcheck="false" autocomplete="off" autocapitalize="off" rows="2"
           placeholder="\Delta_{\mathrm{r}}G^\ominus=-nFE^\ominus"></textarea>
       </div>
@@ -860,75 +885,98 @@
 
     <!-- DEMONSTRACAO INTEIRA -->
     <section class="bloco demo-toda" aria-labelledby="titulo-toda">
-      <span class="rotulo" id="titulo-toda">Demonstração inteira</span>
+      <span class="rotulo" id="titulo-toda" data-i18n>Demonstração inteira</span>
       <div class="opcoes opcoes--demo">
         <label><input type="checkbox" id="op-alinhar" checked>
-          <span>Alinhar no primeiro sinal de relação <code>=, ≤, ≈, →, ⇌…</code></span></label>
+          <span data-i18n>Alinhar no primeiro sinal de relação <code>=, ≤, ≈, →, ⇌…</code></span></label>
         <label><input type="checkbox" id="op-numerar">
-          <span>Numerar a última linha (as outras levam <code>\nonumber</code>)</span></label>
+          <span data-i18n>Numerar a última linha (as outras levam <code>\nonumber</code>)</span></label>
       </div>
-      <div class="acoes" role="group" aria-label="Copiar a demonstração">
-        <span class="grupo">Copiar tudo</span>
+      <div class="acoes" role="group" data-i18n-aria-label aria-label="Copiar a demonstração">
+        <span class="grupo" data-i18n>Copiar tudo</span>
         <button type="button" class="principal" id="btn-demo-align">LaTeX (align)</button>
         <button type="button" id="btn-demo-mathml">MathML</button>
         <button type="button" id="btn-demo-copiar-svg">SVG</button>
         <button type="button" id="btn-demo-copiar-png">PNG</button>
       </div>
-      <div class="acoes" role="group" aria-label="Baixar a demonstração">
-        <span class="grupo">Baixar tudo</span>
+      <div class="acoes" role="group" data-i18n-aria-label aria-label="Baixar a demonstração">
+        <span class="grupo" data-i18n>Baixar tudo</span>
         <button type="button" id="btn-demo-svg">SVG</button>
         <button type="button" id="btn-demo-png">PNG</button>
         <span id="lugar-fonte-demo"></span>
       </div>
       <p class="status" id="status-demo" role="status" aria-live="polite"></p>
       <details class="detalhes">
-        <summary>Ver o LaTeX da demonstração</summary>
-        <textarea id="latex-demo" readonly spellcheck="false" rows="6" aria-label="LaTeX da demonstração"></textarea>
-        <p class="dica">Cores usam <code>\textcolor</code>: no preâmbulo, <code>\usepackage{xcolor}</code>.
+        <summary data-i18n>Ver o LaTeX da demonstração</summary>
+        <textarea id="latex-demo" readonly spellcheck="false" rows="6" data-i18n-aria-label aria-label="LaTeX da demonstração"></textarea>
+        <p class="dica" data-i18n>Cores usam <code>\textcolor</code>: no preâmbulo, <code>\usepackage{xcolor}</code>.
           Comentários saem como <code>\text{…}</code> à direita, no estilo justificativa.</p>
       </details>
     </section>
 
-    <!-- CONVENCOES -->
-    <fieldset>
-      <legend>Convenções na saída</legend>
-      <div class="opcoes">
-        <label><input type="checkbox" id="op-virgula" checked>
-          <span>Vírgula decimal <code>3.5 → 3{,}5</code></span></label>
-        <label><input type="checkbox" id="op-exp" checked>
-          <span>Exponencial como potência <code>\exp(x) → e^{x}</code></span></label>
-        <label><input type="checkbox" id="op-trig" checked>
-          <span>Seno e tangente em português <code>\sin → sen, \tan → tg</code></span></label>
-        <label><input type="checkbox" id="op-padrao">
-          <span>Estado padrão <code>^\circ → ^\ominus</code> (desligado por padrão: 30^\circ é ângulo)</span></label>
-      </div>
-    </fieldset>
-
     <!-- HISTORICO -->
     <div class="historico-topo">
-      <h2 id="titulo-historico">Últimas equações e demonstrações copiadas ou exportadas</h2>
-      <button type="button" class="discreto" id="btn-limpar-historico">Apagar histórico</button>
+      <h2 id="titulo-historico" data-i18n>Últimas equações e demonstrações copiadas ou exportadas</h2>
+      <button type="button" class="discreto" id="btn-limpar-historico" data-i18n>Apagar histórico</button>
     </div>
     <ol class="historico" id="historico" aria-labelledby="titulo-historico"></ol>
-    <p class="vazio" id="historico-vazio">Nada por aqui ainda. Ao copiar ou exportar, a equação aparece nesta lista.</p>
+    <p class="vazio" id="historico-vazio" data-i18n>Nada por aqui ainda. Ao copiar ou exportar, a equação aparece nesta lista.</p>
 
-    <p class="rodape">Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.
+    <p class="rodape" data-i18n>Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.
       Campo de edição: <a href="https://cortexjs.io/mathlive/" rel="noopener">MathLive</a> (MIT). Exportação:
       <a href="https://www.mathjax.org/" rel="noopener">MathJax</a> (Apache 2.0).</p>
     <!-- BARRA DA SELECAO: aparece sobre o trecho selecionado (ver BARRA DA SELECAO no script) -->
-    <div class="barra-selecao" id="barra-selecao" role="toolbar" aria-label="Formatar o trecho selecionado" hidden></div>
+    <div class="barra-selecao" id="barra-selecao" role="toolbar" data-i18n-aria-label aria-label="Formatar o trecho selecionado" hidden></div>
 
     <!-- ESCOLHA DO QUE APARECE NA BARRA DA SELECAO (montada pelo script) -->
     <dialog class="escolha-barra" id="escolha-barra" aria-labelledby="titulo-escolha-barra">
-      <h2 id="titulo-escolha-barra">Barra da seleção: o que aparece</h2>
-      <p class="dica">Marque o que você quer na barra que surge ao selecionar um trecho da equação. Vale na hora e
+      <h2 id="titulo-escolha-barra" data-i18n>Barra da seleção: o que aparece</h2>
+      <p class="dica" data-i18n>Marque o que você quer na barra que surge ao selecionar um trecho da equação. Vale na hora e
         fica guardado neste computador.</p>
       <div class="escolha-barra-lista" id="escolha-barra-lista"></div>
       <div class="acoes">
-        <button type="button" id="btn-escolha-padrao">Restaurar o padrão</button>
-        <button type="button" id="btn-escolha-tudo">Marcar tudo</button>
+        <button type="button" id="btn-escolha-padrao" data-i18n>Restaurar o padrão</button>
+        <button type="button" id="btn-escolha-tudo" data-i18n>Marcar tudo</button>
         <span class="separador"></span>
-        <button type="button" class="principal" id="btn-escolha-fechar">Fechar</button>
+        <button type="button" class="principal" id="btn-escolha-fechar" data-i18n>Fechar</button>
+      </div>
+    </dialog>
+
+    <!-- CONFIGURACOES: idioma, tema, fonte padrao, convencoes e barra da selecao.
+         Tudo vale na hora e fica guardado (localStorage). -->
+    <dialog class="configuracoes" id="configuracoes" aria-labelledby="titulo-configuracoes">
+      <h2 id="titulo-configuracoes" data-i18n>Configurações</h2>
+      <div class="config-grade">
+        <label class="config-item"><span data-i18n>Idioma</span>
+          <select id="config-idioma"></select></label>
+        <label class="config-item"><span data-i18n>Tema</span>
+          <select id="config-tema">
+            <option value="automático" data-i18n>Automático (segue o sistema)</option>
+            <option value="claro" data-i18n>Claro</option>
+            <option value="escuro" data-i18n>Escuro</option>
+          </select></label>
+        <label class="config-item"><span data-i18n>Fonte padrão das equações</span>
+          <select id="config-fonte"></select></label>
+        <div class="config-item"><span data-i18n>Barra da seleção</span>
+          <button type="button" id="btn-config-barra" data-i18n>Escolher o que aparece…</button></div>
+      </div>
+      <fieldset class="config-convencoes">
+        <legend data-i18n>Convenções na saída</legend>
+        <p class="dica" data-i18n>Só mudam o que é copiado ou exportado; o campo mostra o que você digitou.</p>
+        <div class="opcoes">
+          <label><input type="checkbox" id="op-virgula" checked>
+            <span data-i18n>Vírgula decimal <code>3.5 → 3{,}5</code></span></label>
+          <label><input type="checkbox" id="op-exp" checked>
+            <span data-i18n>Exponencial como potência <code>\exp(x) → e^{x}</code></span></label>
+          <label><input type="checkbox" id="op-trig" checked>
+            <span data-i18n>Seno e tangente em português <code>\sin → sen, \tan → tg</code></span></label>
+          <label><input type="checkbox" id="op-padrao">
+            <span data-i18n>Estado padrão <code>^\circ → ^\ominus</code> (desligado por padrão: 30^\circ é ângulo)</span></label>
+        </div>
+      </fieldset>
+      <div class="acoes">
+        <span class="separador"></span>
+        <button type="button" class="principal" id="btn-config-fechar" data-i18n>Fechar</button>
       </div>
     </dialog>
   </main>
@@ -1010,6 +1058,75 @@
     const URL_FONTES_MATHLIVE = "vendor/mathlive/fonts";
     const ESPERA_MATHLIVE_MS = 12000;              // desiste do MathLive depois disso
     const ESCALA_MINIMA_CAMPO = 0.55;              // equacao longa encolhe ate 55% da fonte; depois rola
+
+    /* =====================================================================
+       IDIOMAS
+       ---------------------------------------------------------------------
+       O texto em portugues e a chave: tr("Passo removido.") devolve a
+       traducao do idioma escolhido, de idiomas.js (window.IDIOMAS_EDITOR =
+       { en: {...}, es: {...}, zh: {...} }); sem traducao, fica o portugues.
+       {nome} marca um valor variavel: tr("Passo {n} criado.", { n: 3 }).
+       HTML: data-i18n (conteudo) e data-i18n-title / -aria-label /
+       -placeholder (atributos); vazios, guardam o texto original na 1a vez
+       (ver traduzirPagina). O que o script monta usa tr() ou rotular().
+       O historico guarda as acoes em portugues e traduz so ao mostrar.
+       ===================================================================== */
+    const IDIOMAS = [
+      { id: "en", nome: "English", local: "en-US", html: "en", mathlive: "en" },
+      { id: "pt", nome: "Português", local: "pt-BR", html: "pt-BR", mathlive: "pt" },
+      { id: "es", nome: "Español", local: "es-ES", html: "es", mathlive: "es" },
+      { id: "zh", nome: "中文", local: "zh-CN", html: "zh-CN", mathlive: "zh-cn" },
+    ];
+    const IDIOMA_PADRAO = "en";
+    const CHAVE_IDIOMA = "lqtsm-editor-equacoes-idioma-v1";
+    const ATRIBUTOS_I18N = ["title", "aria-label", "placeholder"];
+    let idioma = IDIOMA_PADRAO;
+    try {
+      const salvo = localStorage.getItem(CHAVE_IDIOMA);
+      if (IDIOMAS.some((i) => i.id === salvo)) idioma = salvo;
+    } catch (e) { /* padrao */ }
+    const infoIdioma = () => IDIOMAS.find((i) => i.id === idioma);
+    const normalizar = (texto) => String(texto).replace(/\s+/g, " ").trim();
+
+    function tr(texto, valores) {
+      const chave = normalizar(texto);
+      const dicionario = (window.IDIOMAS_EDITOR || {})[idioma];
+      let saida = dicionario && Object.prototype.hasOwnProperty.call(dicionario, chave) ? dicionario[chave] : chave;
+      if (valores) saida = saida.replace(/\{(\w+)\}/g, (m, k) => (k in valores ? String(valores[k]) : m));
+      return saida;
+    }
+
+    // title e aria-label traduziveis num elemento montado pelo script
+    function rotular(el, texto) {
+      ["title", "aria-label"].forEach((a) => {
+        el.setAttribute("data-i18n-" + a, texto);
+        el.setAttribute(a, tr(texto));
+      });
+      return el;
+    }
+
+    // Aplica o idioma a tudo que tem data-i18n* (HTML fixo e partes montadas)
+    function traduzirPagina() {
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        if (!el.dataset.i18n) el.dataset.i18n = normalizar(el.innerHTML);
+        el.innerHTML = tr(el.dataset.i18n);
+      });
+      ATRIBUTOS_I18N.forEach((a) => document.querySelectorAll("[data-i18n-" + a + "]").forEach((el) => {
+        const marca = "data-i18n-" + a;
+        if (!el.getAttribute(marca)) el.setAttribute(marca, normalizar(el.getAttribute(a) || ""));
+        el.setAttribute(a, tr(el.getAttribute(marca)));
+      }));
+      document.documentElement.lang = infoIdioma().html;
+      document.title = tr("Editor de equações | LQTSM — UERJ");
+    }
+
+    // Acao do historico ("demonstração (3 passos) · SVG baixado"), parte por parte
+    function traduzirAcao(acao) {
+      return String(acao || "").split(" · ").map((parte) => {
+        const m = /^demonstração \((\d+) passos\)$/.exec(parte);
+        return m ? tr("demonstração ({n} passos)", { n: m[1] }) : tr(parte);
+      }).join(" · ");
+    }
 
     /* =====================================================================
        TECLADO VIRTUAL (abas proprias, no lugar das do MathLive)
@@ -1389,8 +1506,7 @@
         const b = document.createElement("button");
         b.type = "button";
         b.innerHTML = rotuloDaTecla(tecla);
-        b.title = tecla.tooltip || latex;
-        b.setAttribute("aria-label", tecla.tooltip || latex);
+        rotular(b, tecla.tooltip || latex);
         b.addEventListener("pointerdown", (e) => e.preventDefault());   // nao tira o foco do campo
         b.addEventListener("click", () => usarFerramenta(latex));
         caixa.appendChild(b);
@@ -1407,6 +1523,22 @@
       registrarRecente(latex);
     }
 
+    // Dicas e rotulos de texto das teclas no idioma escolhido (as abas em
+    // ABAS_TECLADO ficam em portugues: o LaTeX das teclas e a chave de tudo)
+    function traduzirTecla(k) {
+      if (!k || typeof k !== "object") return k;
+      const n = { ...k };
+      if (n.tooltip) n.tooltip = tr(n.tooltip);
+      if (n.label && !/[<\\]/.test(n.label)) n.label = tr(n.label);
+      if (n.shift && typeof n.shift === "object") n.shift = traduzirTecla(n.shift);
+      if (Array.isArray(n.variants)) n.variants = n.variants.map(traduzirTecla);
+      return n;
+    }
+    function traduzirAbas(abas) {
+      return abas.map((aba) => (typeof aba === "string" ? aba
+        : { ...aba, tooltip: tr(aba.tooltip), rows: aba.rows.map((linha) => linha.map(traduzirTecla)) }));
+    }
+
     // Linha de recentes para o teclado virtual (primeira linha de cada aba)
     function abasComRecentes() {
       const abas = isolarRedondo(ABAS_TECLADO);
@@ -1417,7 +1549,7 @@
       // Altura comum: o numero de linhas da aba mais alta
       const linhas = Math.max(...comRecentes.map((aba) => (aba.rows ? aba.rows.length : 0)));
       document.body.style.setProperty("--linhas-teclado", String(linhas));
-      return comRecentes;
+      return traduzirAbas(comRecentes);
     }
 
     /* ---------------------------------------------------------------------
@@ -1552,7 +1684,7 @@
     function rotuloDoItem(item) {
       if (item.icone) return icone(item.icone);
       if (item.html) return item.html;
-      return item.tex ? rotuloDaTecla({ latex: item.tex }) : item.rotulo;
+      return item.tex ? rotuloDaTecla({ latex: item.tex }) : tr(item.rotulo);
     }
 
     // Executa um item da barra sobre a selecao do campo
@@ -1580,7 +1712,7 @@
       const botao = (rotulo, conteudo, acao, classe) => {
         const b = document.createElement("button");
         b.type = "button";
-        b.title = rotulo;
+        b.title = rotulo;                            // ja traduzido por quem chama
         b.setAttribute("aria-label", rotulo);
         if (classe) b.className = classe;
         if (conteudo) b.innerHTML = conteudo;
@@ -1595,15 +1727,15 @@
         if (barra.childElementCount) { const sep = document.createElement("span"); sep.className = "sep"; barra.appendChild(sep); }
         itens.forEach((item) => {
           if (item.acao === "cores") {
-            CORES.forEach((c) => { botao("Cor: " + c.rotulo, "", () => colorirSelecao(c.nome), "cor").style.background = c.css; });
-            botao("Sem cor", "⊘", () => colorirSelecao("none"));
+            CORES.forEach((c) => { botao(tr("Cor: {cor}", { cor: tr(c.rotulo) }), "", () => colorirSelecao(c.nome), "cor").style.background = c.css; });
+            botao(tr("Sem cor"), "⊘", () => colorirSelecao("none"));
           } else {
-            botao(item.rotulo, rotuloDoItem(item), (b) => usarItemDaBarra(item, b));
+            botao(tr(item.rotulo), rotuloDoItem(item), (b) => usarItemDaBarra(item, b));
           }
         });
       });
       const sep = document.createElement("span"); sep.className = "sep"; barra.appendChild(sep);
-      botao("Escolher o que aparece nesta barra", icone("engrenagem"), abrirEscolhaDaBarra, "engrenagem");
+      botao(tr("Escolher o que aparece nesta barra"), icone("engrenagem"), abrirEscolhaDaBarra, "engrenagem");
       if (!barra.hidden && campoDaBarra) posicionarBarra(campoDaBarra);
     }
 
@@ -1626,7 +1758,7 @@
         const caixa = document.createElement("fieldset");
         caixa.className = "escolha-grupo";
         const legenda = document.createElement("legend");
-        legenda.textContent = grupo.grupo;
+        legenda.textContent = tr(grupo.grupo);
         caixa.appendChild(legenda);
         grupo.itens.forEach((item) => {
           const rotulo = document.createElement("label");
@@ -1634,7 +1766,7 @@
           marca.type = "checkbox";
           marca.value = item.id;
           marca.checked = escolha.has(item.id);
-          marca.setAttribute("aria-label", item.rotulo);   // so o nome (o desenho e enfeite)
+          marca.setAttribute("aria-label", tr(item.rotulo));   // so o nome (o desenho e enfeite)
           marca.addEventListener("change", () => {
             const atual = [...lista.querySelectorAll("input:checked")].map((x) => x.value);
             gravarEscolhaDaBarra(atual);
@@ -1647,7 +1779,7 @@
             ? CORES.slice(0, 4).map((c) => "<i style='background:" + c.css + "'></i>").join("")
             : rotuloDoItem(item);
           const nome = document.createElement("span");
-          nome.textContent = item.rotulo;
+          nome.textContent = tr(item.rotulo);
           rotulo.append(marca, desenho, nome);
           caixa.appendChild(rotulo);
         });
@@ -1719,8 +1851,8 @@
 
     async function copiarTrecho(alvo) {
       const trecho = latexDoTrecho(alvo);
-      if (await copiarTexto(trecho)) mostrarStatus("Trecho copiado: " + trecho);
-      else mostrarStatus("O navegador bloqueou a cópia. Use Ctrl+C no campo.", true);
+      if (await copiarTexto(trecho)) mostrarStatus(tr("Trecho copiado: {trecho}", { trecho }));
+      else mostrarStatus(tr("O navegador bloqueou a cópia. Use Ctrl+C no campo."), true);
     }
 
     // O trecho como PNG, na fonte do passo e com as convencoes (como a exportacao)
@@ -1739,7 +1871,7 @@
       const i = passos.findIndex((p) => p.mf === alvo);
       const passo = passos[i];
       adicionarPasso(latexDoTrecho(alvo), "", i + 1, true, passo ? passo.fonte : "");
-      mostrarStatus("Passo " + (i + 2) + " criado com o trecho.");
+      mostrarStatus(tr("Passo {n} criado com o trecho.", { n: i + 2 }));
     }
 
     // Aplica as abas e liga o botao da pagina. O botao so aparece com o
@@ -1897,7 +2029,7 @@
       passos.forEach((p) => p.li.classList.toggle("ativo", p.mf === mf));
       const i = passos.findIndex((p) => p.mf === mf);
       $("n-passo").textContent = i >= 0 ? String(i + 1) : "";
-      areaLatex.setAttribute("aria-label", "LaTeX do passo " + (i + 1));
+      areaLatex.setAttribute("aria-label", tr("LaTeX do passo {n}", { n: i + 1 }));
       sincronizando = true;
       areaLatex.value = limparLatexDoCampo(mf.getValue("latex"));
       sincronizando = false;
@@ -1944,12 +2076,14 @@
       const barra = document.createElement("div");
       barra.className = "passo-barra";
       barra.setAttribute("role", "toolbar");
-      barra.setAttribute("aria-label", "Copiar e baixar o passo");
+      barra.setAttribute("data-i18n-aria-label", "Copiar e baixar o passo");
+      barra.setAttribute("aria-label", tr("Copiar e baixar o passo"));
       BARRA_PASSO.forEach((item) => {
         if (item.marca) {
           const m = document.createElement("span");
           m.className = "marca";
-          m.title = item.rotulo;
+          m.setAttribute("data-i18n-title", item.rotulo);
+          m.title = tr(item.rotulo);
           m.innerHTML = icone(item.marca);
           barra.appendChild(m);
           return;
@@ -1958,8 +2092,7 @@
         const b = document.createElement("button");
         b.type = "button";
         b.dataset.acao = item.acao;
-        b.title = item.rotulo;
-        b.setAttribute("aria-label", item.rotulo);
+        rotular(b, item.rotulo);
         b.innerHTML = icone(item.icone);
         if (item.acao === "ver-latex") {
           b.setAttribute("aria-pressed", "false");
@@ -2131,7 +2264,7 @@
     function exigirEquacao() {
       const original = latexAtual();
       if (!original) {
-        mostrarStatus("O passo em foco está vazio. Clique num passo com equação ou escreva uma.", true);
+        mostrarStatus(tr("O passo em foco está vazio. Clique num passo com equação ou escreva uma."), true);
         return null;
       }
       return { original, saida: latexDeSaida() };
@@ -2201,7 +2334,7 @@
         mostrarStatus(mensagemOk);
         if (alvo) registrar(alvo, acao); else registrarHistorico(original, acao);
       } else {
-        mostrarStatus("O navegador bloqueou a cópia. Selecione o texto no campo LaTeX e use Ctrl+C.", true);
+        mostrarStatus(tr("O navegador bloqueou a cópia. Selecione o texto no campo LaTeX e use Ctrl+C."), true);
       }
     }
 
@@ -2226,7 +2359,8 @@
       try { return fonteValida(localStorage.getItem(CHAVE_FONTE)); } catch (e) { return FONTES[0].id; }
     }
     const fonteDoPasso = (passo) => passo.fonte || fontePadrao();
-    const rotuloPadrao = () => "Padrão: " + FONTES.find((f) => f.id === fontePadrao()).rotulo;
+    const rotuloFonte = (id) => tr(FONTES.find((f) => f.id === id).rotulo);
+    const rotuloPadrao = () => tr("Padrão: {fonte}", { fonte: rotuloFonte(fontePadrao()) });
     const preCarregar = (fonte) => carregarMathJax(fonte).catch(() => { /* o erro aparece na exportacao */ });
 
     // Seletor com "Padrao (...)" + as fontes; valor "" = segue o padrao
@@ -2234,24 +2368,37 @@
       const s = document.createElement("select");
       s.className = "seletor-fonte";
       s.add(new Option(rotuloPadrao(), ""));
-      FONTES.forEach((f) => s.add(new Option(f.rotulo, f.id)));
+      FONTES.forEach((f) => s.add(new Option(rotuloFonte(f.id), f.id)));
       s.value = fonteFixa(valor);
-      s.title = rotulo;
-      s.setAttribute("aria-label", rotulo);
+      rotular(s, rotulo);
       s.addEventListener("change", () => { if (s.value) preCarregar(s.value); aoMudar(s.value); });
       return s;
     }
 
+    // A fonte padrao aparece em dois lugares: no topo e em Configuracoes
+    const SELETORES_FONTE_PADRAO = ["fonte-padrao", "config-fonte"];
+    function definirFontePadrao(fonte) {
+      try { localStorage.setItem(CHAVE_FONTE, fonte); } catch (e) { /* so nesta visita */ }
+      preCarregar(fonte);
+      SELETORES_FONTE_PADRAO.forEach((id) => { $(id).value = fonte; });
+      atualizarRotulosDeFonte();
+      passos.filter((p) => !p.fonte).forEach(aplicarFonteNoCampo);   // so os que seguem o padrao
+      mostrarStatus(tr("Fonte padrão: {fonte}.", { fonte: rotuloFonte(fonte) }));
+    }
+    // Textos das opcoes (idioma novo ou "Padrao: ..." com outra fonte)
+    function atualizarRotulosDeFonte() {
+      SELETORES_FONTE_PADRAO.forEach((id) => [...$(id).options].forEach((o) => { o.text = rotuloFonte(o.value); }));
+      document.querySelectorAll(".seletor-fonte").forEach((s) => [...s.options].forEach((o) => {
+        o.text = o.value ? rotuloFonte(o.value) : rotuloPadrao();
+      }));
+    }
+
     function ligarFontePadrao() {
-      const seletor = $("fonte-padrao");
-      FONTES.forEach((f) => seletor.add(new Option(f.rotulo, f.id)));
-      seletor.value = fontePadrao();
-      seletor.addEventListener("change", () => {
-        try { localStorage.setItem(CHAVE_FONTE, seletor.value); } catch (e) { /* so nesta visita */ }
-        preCarregar(seletor.value);
-        document.querySelectorAll(".seletor-fonte").forEach((s) => { s.options[0].text = rotuloPadrao(); });
-        passos.filter((p) => !p.fonte).forEach(aplicarFonteNoCampo);   // so os que seguem o padrao
-        mostrarStatus("Fonte padrão: " + seletor.selectedOptions[0].text + ".");
+      SELETORES_FONTE_PADRAO.forEach((id) => {
+        const seletor = $(id);
+        FONTES.forEach((f) => seletor.add(new Option(rotuloFonte(f.id), f.id)));
+        seletor.value = fontePadrao();
+        seletor.addEventListener("change", () => definirFontePadrao(seletor.value));
       });
       $("lugar-fonte-demo").replaceWith(seletorDeFonte("", "Fonte do SVG e do PNG da demonstração", (v) => { fonteDemo = v; }));
     }
@@ -2301,8 +2448,8 @@
     }
 
     function erroMathJax() {
-      mostrarStatus("Não foi possível carregar o MathJax, que gera o MathML, o SVG e o PNG. Verifique a conexão " +
-        "(ou se o site bloqueia cdn.jsdelivr.net) e tente de novo.", true);
+      mostrarStatus(tr("Não foi possível carregar o MathJax, que gera o MathML, o SVG e o PNG. Verifique a conexão " +
+        "(ou se o site bloqueia cdn.jsdelivr.net) e tente de novo."), true);
     }
 
     // Converte o LaTeX em <svg> autonomo (string), pronto para arquivo
@@ -2382,8 +2529,8 @@
 
     function tratarErroExportacao(e) {
       if (e && String(e.message).startsWith("TeX:")) {
-        mostrarStatus("O MathJax não entendeu o LaTeX (" + e.message.slice(5) +
-          "). Corrija no campo LaTeX e tente de novo.", true);
+        mostrarStatus(tr("O MathJax não entendeu o LaTeX ({erro}). Corrija no campo LaTeX e tente de novo.",
+          { erro: e.message.slice(5) }), true);
       } else {
         erroMathJax();
       }
@@ -2425,7 +2572,7 @@
 
     function tratarErroImagem(e) {
       if (e && (e.message === "imagem" || e.message === "png")) {
-        mostrarStatus("O navegador não conseguiu desenhar o PNG. Use o SVG e converta no Inkscape.", true);
+        mostrarStatus(tr("O navegador não conseguiu desenhar o PNG. Use o SVG e converta no Inkscape."), true);
       } else {
         tratarErroExportacao(e);
       }
@@ -2450,7 +2597,7 @@
 
       if (formato === "latex" || formato === "equation" || formato === "align") {
         const rotulos = { latex: "LaTeX", equation: "equation", align: "align" };
-        copiar(alvo.texto, rotulos[formato] + " copiado.", rotulos[formato] + " copiado", alvo.original, alvo)
+        copiar(alvo.texto, tr("{formato} copiado.", { formato: rotulos[formato] }), rotulos[formato] + " copiado", alvo.original, alvo)
         return;
       }
 
@@ -2458,7 +2605,7 @@
         ocupado(botao, async () => {
           try {
             const mml = await latexParaMathML(alvo.render);
-            await copiar(mml, "MathML copiado.", "MathML copiado", alvo.original, alvo);
+            await copiar(mml, tr("{formato} copiado.", { formato: "MathML" }), "MathML copiado", alvo.original, alvo);
           } catch (e) { tratarErroExportacao(e); }
         });
         return;
@@ -2470,12 +2617,12 @@
             if (formato === "svg") {
               const svg = await latexParaSvg(alvo.render, alvo.fonte);
               baixar(new Blob([svg.texto], { type: "image/svg+xml" }), nome + ".svg");
-              mostrarStatus("SVG baixado.");
+              mostrarStatus(tr("SVG baixado."));
               registrar(alvo, "SVG baixado");
             } else {
               const png = await latexParaPng(alvo.render, alvo.fonte);
               baixar(png.blob, nome + ".png");
-              mostrarStatus("PNG baixado (" + png.largura + " × " + png.altura + " px).");
+              mostrarStatus(tr("PNG baixado ({largura} × {altura} px).", { largura: png.largura, altura: png.altura }));
               registrar(alvo, "PNG baixado");
             }
           } catch (e) { tratarErroImagem(e); }
@@ -2489,7 +2636,7 @@
       // MathJax resolve depois.
       if (formato === "png") {
         if (!podeCopiarImagem() || !suportaTipo("image/png")) {
-          mostrarStatus("Este navegador não copia imagens para a área de transferência (ou a página não está em https). Use Baixar PNG.", true);
+          mostrarStatus(tr("Este navegador não copia imagens para a área de transferência (ou a página não está em https). Use Baixar PNG."), true);
           return;
         }
         ocupado(botao, async () => {
@@ -2500,11 +2647,11 @@
           });
           try {
             await navigator.clipboard.write([new ClipboardItem({ "image/png": promessa })]);
-            mostrarStatus("PNG copiado (" + dimensoes + "). Cole no Word, PowerPoint, Inkscape ou no chat.");
+            mostrarStatus(tr("PNG copiado ({dimensoes}). Cole no Word, PowerPoint, Inkscape ou no chat.", { dimensoes }));
             registrar(alvo, "PNG copiado");
           } catch (e) {
             try { await promessa; } catch (erroGeracao) { tratarErroImagem(erroGeracao); return; }
-            mostrarStatus("O navegador não deixou copiar a imagem. Use Baixar PNG.", true);
+            mostrarStatus(tr("O navegador não deixou copiar a imagem. Use Baixar PNG."), true);
           }
         });
         return;
@@ -2526,11 +2673,11 @@
             const svg = await promessa;
             if (!(await copiarTexto(svg.texto))) throw new Error("copia");
           }
-          mostrarStatus("SVG copiado. No Inkscape, Ctrl+V cola como desenho editável.");
+          mostrarStatus(tr("SVG copiado. No Inkscape, Ctrl+V cola como desenho editável."));
           registrar(alvo, "SVG copiado");
         } catch (e) {
           try { await promessa; } catch (erroGeracao) { tratarErroExportacao(erroGeracao); return; }
-          mostrarStatus("O navegador não deixou copiar o SVG. Use Baixar SVG.", true);
+          mostrarStatus(tr("O navegador não deixou copiar o SVG. Use Baixar SVG."), true);
         }
       });
     }
@@ -2585,8 +2732,8 @@
         p.li.querySelector(".passo-n").textContent = String(i + 1);
         p.li.querySelector(".subir").disabled = i === 0;
         p.li.querySelector(".descer").disabled = i === passos.length - 1;
-        p.mf.setAttribute("aria-label", "Equação do passo " + (i + 1));
-        p.input.setAttribute("aria-label", "Comentário do passo " + (i + 1));
+        p.mf.setAttribute("aria-label", tr("Equação do passo {n}", { n: i + 1 }));
+        p.input.setAttribute("aria-label", tr("Comentário do passo {n}", { n: i + 1 }));
       });
     }
 
@@ -2595,15 +2742,14 @@
       b.type = "button";
       b.className = classe;
       b.textContent = simbolo;
-      b.title = rotulo;
-      b.setAttribute("aria-label", rotulo);
+      rotular(b, rotulo);
       b.addEventListener("click", acao);
       return b;
     }
 
     // Cria o passo e o coloca na posicao 'indice' (fim, se omitido)
     function adicionarPasso(latex = "", comentario = "", indice = passos.length, focar = false, fonte = "") {
-      if (!campoPronto) { mostrarStatus("O campo visual ainda não carregou.", true); return null; }
+      if (!campoPronto) { mostrarStatus(tr("O campo visual ainda não carregou."), true); return null; }
       const li = document.createElement("li");
       li.className = "passo";
       const n = document.createElement("span");
@@ -2616,7 +2762,8 @@
       const input = document.createElement("input");
       input.type = "text";
       input.className = "passo-coment";
-      input.placeholder = "comentário / justificativa (opcional)";
+      input.setAttribute("data-i18n-placeholder", "comentário / justificativa (opcional)");
+      input.placeholder = tr("comentário / justificativa (opcional)");
       input.value = comentario;
       const botoes = document.createElement("div");
       botoes.className = "passo-botoes";
@@ -2669,7 +2816,7 @@
         ativarCampo(vizinho.mf);
       }
       demonstracaoMudou();
-      mostrarStatus("Passo removido.");
+      mostrarStatus(tr("Passo removido."));
     }
 
     function moverPasso(i, delta) {
@@ -2691,7 +2838,7 @@
       demonstracaoMudou();
       if (!silencioso) {
         adicionarPasso("", "", 0, true);           // a pagina nunca fica sem um passo
-        mostrarStatus("Demonstração apagada.");
+        mostrarStatus(tr("Demonstração apagada."));
       }
     }
 
@@ -2782,7 +2929,7 @@
 
     function alvoDemonstracao() {
       if (!linhasDaDemonstracao().length) {
-        mostrarStatus("A demonstração está vazia. Adicione passos primeiro.", true);
+        mostrarStatus(tr("A demonstração está vazia. Adicione passos primeiro."), true);
         return null;
       }
       const texto = latexDaDemonstracao();
@@ -2828,8 +2975,8 @@
       $("btn-importar-fechar").addEventListener("click", () => { importar.hidden = true; $("btn-passo-importar").setAttribute("aria-expanded", "false"); });
       $("btn-importar-ok").addEventListener("click", () => {
         const n = importarAlign($("importar-texto").value);
-        if (n) { mostrarStatus(n + (n === 1 ? " passo acrescentado." : " passos acrescentados.")); $("importar-texto").value = ""; }
-        else mostrarStatus("Não encontrei linhas no texto colado. Separe as equações com \\\\\\\\.", true);
+        if (n) { mostrarStatus(n === 1 ? tr("1 passo acrescentado.") : tr("{n} passos acrescentados.", { n })); $("importar-texto").value = ""; }
+        else mostrarStatus(tr("Não encontrei linhas no texto colado. Separe as equações com \\\\\\\\."), true);
       });
       ["op-alinhar", "op-numerar", "op-virgula", "op-exp", "op-trig", "op-padrao"].forEach((id) =>
         $(id).addEventListener("change", demonstracaoMudou));
@@ -2869,7 +3016,7 @@
 
     function formatarQuando(iso) {
       try {
-        return new Date(iso).toLocaleString("pt-BR", {
+        return new Date(iso).toLocaleString(infoIdioma().local, {
           day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
         });
       } catch (e) { return ""; }
@@ -2887,11 +3034,11 @@
         codigo.textContent = item.passos ? item.passos.map((p) => p.latex).join("  ·  ") : item.latex;
         const meta = document.createElement("span");
         meta.className = "h-meta";
-        meta.textContent = (item.acao || "") + " · " + formatarQuando(item.quando);
+        meta.textContent = traduzirAcao(item.acao) + " · " + formatarQuando(item.quando);
         const botao = document.createElement("button");
         botao.type = "button";
-        botao.textContent = "Reabrir";
-        botao.setAttribute("aria-label", "Reabrir " + (item.passos ? "a demonstração" : "a equação ") + (item.passos ? "" : item.latex));
+        botao.textContent = tr("Reabrir");
+        botao.setAttribute("aria-label", item.passos ? tr("Reabrir a demonstração") : tr("Reabrir a equação {latex}", { latex: item.latex }));
         botao.addEventListener("click", () => {
           if (item.passos) {
             // A demonstracao atual, se houver, vai para o historico antes de ser trocada
@@ -2899,11 +3046,11 @@
             carregarPassos(item.passos);
             passos[0].mf.focus();
             $("titulo-demo").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-            mostrarStatus("Demonstração reaberta (" + item.passos.length + " passos).");
+            mostrarStatus(tr("Demonstração reaberta ({n} passos).", { n: item.passos.length }));
             return;
           }
           definirLatex(item.latex);
-          mostrarStatus("Equação reaberta como passo " + passos.length + ".");
+          mostrarStatus(tr("Equação reaberta como passo {n}.", { n: passos.length }));
         });
         li.append(codigo, botao, meta);
         listaHistorico.appendChild(li);
@@ -2929,7 +3076,7 @@
       $("btn-limpar-historico").addEventListener("click", () => {
         gravarHistorico([]);
         desenharHistorico();
-        mostrarStatus("Histórico apagado.");
+        mostrarStatus(tr("Histórico apagado."));
       });
 
       areaLatex.addEventListener("input", textoParaCampo);
@@ -2954,6 +3101,7 @@
         // na pagina; por isso o campo e criado aqui, e nao no HTML.
         MathfieldElement.fontsDirectory = URL_FONTES_MATHLIVE;
         MathfieldElement.soundsDirectory = null;     // sem cliques de teclado
+        MathfieldElement.locale = infoIdioma().mathlive;
         campoPronto = true;
         configurarTeclado();
         ligarBarraSelecao();                         // rotulos desenhados pelo MathLive: so depois dele
@@ -2969,8 +3117,8 @@
         // Sem MathLive: o textarea continua valendo para copiar e exportar um passo
         const aviso = $("aviso-mathlive");
         aviso.hidden = false;
-        aviso.textContent = "Não foi possível carregar o campo visual (MathLive). Verifique a conexão ou se o site " +
-          "bloqueia cdn.jsdelivr.net. Enquanto isso, digite o LaTeX no campo abaixo: copiar e exportar continuam funcionando.";
+        aviso.textContent = tr("Não foi possível carregar o campo visual (MathLive). Verifique a conexão ou se o site " +
+          "bloqueia cdn.jsdelivr.net. Enquanto isso, digite o LaTeX no campo abaixo: copiar e exportar continuam funcionando.");
         $("n-passo").textContent = "";
         const painel = $("painel-latex");
         painel.hidden = false;                       // sem MathLive, o LaTeX fica sempre a vista
@@ -2985,23 +3133,60 @@
     function aplicarTema(tema) {
       if (tema === "claro" || tema === "escuro") document.documentElement.dataset.tema = tema;
       else { delete document.documentElement.dataset.tema; tema = "automático"; }
-      $("btn-tema").textContent = "Tema: " + tema;
-      $("btn-tema").setAttribute("aria-label", "Tema atual: " + tema + ". Clique para trocar.");
+      $("config-tema").value = tema;
     }
     (function iniciarTema() {
       let tema = "automático";
       try { tema = localStorage.getItem(CHAVE_TEMA) || tema; } catch (e) { /* segue o sistema */ }
       aplicarTema(tema);
-      $("btn-tema").addEventListener("click", () => {
-        const ordem = ["automático", "claro", "escuro"];
-        const atual = document.documentElement.dataset.tema || "automático";
-        const proximo = ordem[(ordem.indexOf(atual) + 1) % ordem.length];
-        aplicarTema(proximo);
-        try { localStorage.setItem(CHAVE_TEMA, proximo); } catch (e) { /* so nesta visita */ }
+      $("config-tema").addEventListener("change", (e) => {
+        aplicarTema(e.target.value);
+        try { localStorage.setItem(CHAVE_TEMA, e.target.value); } catch (e2) { /* so nesta visita */ }
       });
     })();
 
+    /* =====================================================================
+       CONFIGURACOES (janela) E TROCA DE IDIOMA
+       ===================================================================== */
+    // O programa de desktop (Electron) traduz o titulo da janela e o
+    // "Salvar como"; no navegador, lqtsmNativo nao existe
+    const avisarIdiomaAoPrograma = () => {
+      if (window.lqtsmNativo && window.lqtsmNativo.definirIdioma) window.lqtsmNativo.definirIdioma(idioma);
+    };
+
+    function mudarIdioma(novo) {
+      if (!IDIOMAS.some((i) => i.id === novo)) return;
+      idioma = novo;
+      try { localStorage.setItem(CHAVE_IDIOMA, novo); } catch (e) { /* so nesta visita */ }
+      traduzirPagina();
+      atualizarRotulosDeFonte();
+      desenharHistorico();
+      avisarIdiomaAoPrograma();
+      if (!campoPronto) return;
+      MathfieldElement.locale = infoIdioma().mathlive;       // menu e dicas do proprio MathLive
+      renumerarPassos();
+      if (campoAtivo) ativarCampo(campoAtivo);
+      desenharRecentes();
+      montarBarraSelecao();
+      montarEscolhaDaBarra();
+      if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.layouts = abasComRecentes();
+    }
+
+    function ligarConfiguracoes() {
+      const janela = $("configuracoes");
+      const idiomas = $("config-idioma");
+      IDIOMAS.forEach((i) => idiomas.add(new Option(i.nome, i.id)));
+      idiomas.value = idioma;
+      idiomas.addEventListener("change", () => mudarIdioma(idiomas.value));
+      $("btn-configuracoes").addEventListener("click", () => { esconderBarraSelecao(); janela.showModal(); });
+      $("btn-config-fechar").addEventListener("click", () => janela.close());
+      $("btn-config-barra").addEventListener("click", () => { janela.close(); abrirEscolhaDaBarra(); });
+    }
+
+    traduzirPagina();
     ligarEventos();
+    ligarConfiguracoes();
+    avisarIdiomaAoPrograma();
     desenharHistorico();
     // O MathLive e carregado com 'defer'; espera o DOM pronto para iniciar.
     if (document.readyState === "loading") {

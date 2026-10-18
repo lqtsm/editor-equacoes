@@ -11,7 +11,7 @@
 #   7. frase do rodape ("no seu navegador" -> "no seu computador")
 # Uso:  scripts/sincronizar_index.sh [index.html do site]
 #       sem argumento, reaplica sobre app/index.html (idempotente).
-#       Com argumento, copia tambem a pasta fontes-edicao/ que esta ao lado.
+#       Com argumento, copia tambem fontes-edicao/ e idiomas.js, que estao ao lado.
 # Falha (exit 1) se qualquer trecho esperado nao for encontrado.
 # =====================================================================
 set -euo pipefail
@@ -33,6 +33,11 @@ if [[ -n "$ORIGEM" ]]; then
     rm -rf "$RAIZ/app/fontes-edicao"
     cp -r "$FONTES_EDICAO" "$RAIZ/app/fontes-edicao"
     echo "copiado: fontes-edicao/ ($(ls "$FONTES_EDICAO" | wc -l) arquivos)"
+  fi
+  # Traducoes da interface (en, es, zh), tambem ao lado da pagina
+  if [[ -f "$(dirname "$ORIGEM")/idiomas.js" ]]; then
+    cp -f "$(dirname "$ORIGEM")/idiomas.js" "$RAIZ/app/idiomas.js"
+    echo "copiado: idiomas.js"
   fi
 fi
 [[ -f "$DESTINO" ]] || { echo "ERRO: app/index.html nao existe" >&2; exit 1; }

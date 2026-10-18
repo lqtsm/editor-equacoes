@@ -12,6 +12,8 @@
    9. selecionar um trecho abre a barra da selecao, acima dele
   10. o usuario escolhe o que aparece na barra (e restaura o padrao)
   11. todo item de LaTeX do catalogo da barra age no trecho e exporta
+  12. toda chave usada tem traducao em ingles, espanhol e chines
+  13. Configuracoes: idioma, tema e fonte padrao valem na hora
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const path = require("node:path");
@@ -51,6 +53,8 @@ test.beforeAll(async () => {
   await page.waitForSelector("math-field", { timeout: ESPERA_MATHLIVE_MS });
   await page.waitForFunction(() => window.MathfieldElement && document.querySelector("math-field").value !== undefined);
   await page.waitForTimeout(500);
+  // Os testes 1-11 conferem textos em portugues (o padrao do programa e o ingles)
+  await page.evaluate(() => mudarIdioma("pt"));
 });
 
 test.afterAll(async () => {
@@ -343,4 +347,82 @@ test("11. todo item de LaTeX do catalogo age no trecho e exporta", async () => {
     return erros;
   });
   expect(falhas).toEqual([]);
+});
+
+// Todas as chaves de traducao que a pagina usa (texto em portugues)
+async function chavesDaPagina() {
+  const html = fs.readFileSync(path.join(RAIZ, "app", "index.html"), "utf8");
+  const codigo = html.slice(html.lastIndexOf("<script>"));
+  const LIT = String.raw`"(?:[^"\\]|\\.)*"`;
+  const juntar = (bloco) => [...bloco.matchAll(new RegExp(LIT, "g"))].map((m) => JSON.parse(m[0])).join("");
+  const doCodigo = [
+    new RegExp(String.raw`\btr\(\s*((?:${LIT}\s*\+?\s*)+)`, "g"),
+    new RegExp(String.raw`botaoPasso\(\s*${LIT}\s*,\s*${LIT}\s*,\s*(${LIT})`, "g"),
+    new RegExp(String.raw`seletorDeFonte\([^,]+,\s*(${LIT})`, "g"),
+    new RegExp(String.raw`setAttribute\("data-i18n-[a-z-]+",\s*(${LIT})`, "g"),
+  ].flatMap((re) => [...codigo.matchAll(re)].map((m) => juntar(m[1])))
+    .filter((c) => !["Passo removido.", "Passo {n} criado."].includes(c) || codigo.includes('tr("' + c + '"' + ")"));
+  const daPagina = await page.evaluate(() => {
+    const r = [];
+    document.querySelectorAll("[data-i18n]").forEach((el) => r.push(el.dataset.i18n));
+    ["title", "aria-label", "placeholder"].forEach((a) => document.querySelectorAll("[data-i18n-" + a + "]").forEach((el) => r.push(el.getAttribute("data-i18n-" + a))));
+    const visitar = (k) => {
+      if (!k || typeof k !== "object") return;
+      if (k.tooltip) r.push(k.tooltip);
+      if (k.label && !/[<\\]/.test(k.label)) r.push(k.label);
+      if (k.shift) visitar(k.shift);
+      if (Array.isArray(k.variants)) k.variants.forEach(visitar);
+    };
+    ABAS_TECLADO.forEach((aba) => { if (typeof aba !== "string") { r.push(aba.tooltip); aba.rows.forEach((l) => l.forEach(visitar)); } });
+    CATALOGO_BARRA.forEach((g) => { r.push(g.grupo); g.itens.forEach((it) => r.push(it.rotulo)); });
+    BARRA_PASSO.forEach((it) => r.push(it.rotulo));
+    FONTES.forEach((f) => r.push(f.rotulo));
+    CORES.forEach((c) => r.push(c.rotulo));
+    return r;
+  });
+  const norm = (t) => String(t).replace(/\s+/g, " ").trim();
+  return [...new Set([...doCodigo, ...daPagina].map(norm))].filter((c) => /\p{L}/u.test(c));
+}
+
+test("12. toda chave usada tem traducao em ingles, espanhol e chines", async () => {
+  const chaves = await chavesDaPagina();
+  expect(chaves.length).toBeGreaterThan(300);
+  const dic = await page.evaluate(() => window.IDIOMAS_EDITOR);
+  for (const lingua of ["en", "es", "zh"]) {
+    const faltam = chaves.filter((c) => !(c in dic[lingua]));
+    expect(faltam, "faltam em " + lingua).toEqual([]);
+  }
+});
+
+test("13. Configuracoes: idioma, tema e fonte padrao valem na hora", async () => {
+  const janela = page.locator("#configuracoes");
+  await page.locator("#btn-configuracoes").click();
+  await expect(janela).toBeVisible();
+  // Ingles: pagina, botoes montados pelo script, teclado, mensagens, <html lang>
+  await page.locator("#config-idioma").selectOption("en");
+  await expect(page.locator("h1")).toHaveText("Equation editor");
+  await expect(page.locator("#btn-passo-vazio")).toHaveText(await page.evaluate(() => IDIOMAS_EDITOR.en["Novo passo"]));
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+  expect(await page.locator(".passo-barra button[data-acao='latex']").first().getAttribute("title"))
+    .toBe(await page.evaluate(() => IDIOMAS_EDITOR.en["Copiar LaTeX (Ctrl+Enter)"]));
+  const dicaTecla = await page.evaluate(() => mathVirtualKeyboard.layouts[0].rows.flat().find((k) => k && k.latex === "\\sqrt{#0}").tooltip);
+  expect(dicaTecla).toBe(await page.evaluate(() => IDIOMAS_EDITOR.en["Raiz quadrada"]));
+  // Chines
+  await page.locator("#config-idioma").selectOption("zh");
+  await expect(page.locator("h1")).toHaveText(await page.evaluate(() => IDIOMAS_EDITOR.zh["Editor de equações"]));
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("zh-CN");
+  // A escolha fica guardada
+  expect(await page.evaluate(() => localStorage.getItem(CHAVE_IDIOMA))).toBe("zh");
+  // Tema escuro e fonte padrao pela janela (o seletor do topo acompanha)
+  await page.locator("#config-tema").selectOption("escuro");
+  expect(await page.evaluate(() => document.documentElement.dataset.tema)).toBe("escuro");
+  await page.locator("#config-fonte").selectOption("stix2");
+  await expect(page.locator("#fonte-padrao")).toHaveValue("stix2");
+  // Volta ao portugues, tema automatico e fonte TeX
+  await page.locator("#config-idioma").selectOption("pt");
+  await page.locator("#config-tema").selectOption("automático");
+  await page.locator("#config-fonte").selectOption("tex");
+  await expect(page.locator("h1")).toHaveText("Editor de equações");
+  await page.locator("#btn-config-fechar").click();
+  await expect(janela).toBeHidden();
 });
