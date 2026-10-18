@@ -153,7 +153,8 @@ test("4. LaTeX align da demonstracao", async () => {
   // "Copiar tudo > LaTeX (align)" poe o mesmo texto na area de transferencia
   await page.locator("#btn-demo-align").click();
   await expect(page.locator("#status, #status-demo").filter({ hasText: "align copiado" }).first()).toBeVisible();
-  const colado = await page.evaluate(() => window.lqtsmNativo.lerTexto());
+  // O Windows troca \n por \r\n na area de transferencia
+  const colado = (await page.evaluate(() => window.lqtsmNativo.lerTexto())).replace(/\r\n/g, "\n");
   expect(colado).toBe(esperado);
 });
 
@@ -178,7 +179,7 @@ test("5. copiar PNG deixa uma imagem na area de transferencia", async () => {
   await page.locator(".passo").first().locator('[data-acao="copiar-svg"]').click();
   await expect.poll(() => page.evaluate(() => window.__status.join("\n")), { timeout: 30000 }).toContain("SVG copiado");
   expect(await app.evaluate(({ clipboard }) => clipboard.availableFormats())).toContain("image/svg+xml");
-  const svg = await page.evaluate(() => window.lqtsmNativo.lerTexto());
+  const svg = (await page.evaluate(() => window.lqtsmNativo.lerTexto())).replace(/\r\n/g, "\n");
   expect(svg).toMatch(/^<\?xml version="1.0" encoding="UTF-8" standalone="no"\?>\n<svg /);
   expect(svg).toContain('width="');
   expect(svg).toContain("#000000");
