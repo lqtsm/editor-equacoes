@@ -366,7 +366,28 @@
     .passo.ativo math-field { border-color: var(--acento); }
     .passo.ativo .passo-n { color: var(--acento); font-weight: 600; }
     .passo math-field::part(menu-toggle) { display: none; }
-    .passo-eq { min-width: 0; overflow-x: clip; overflow-clip-margin: 4px; }
+    .passo-eq { position: relative; min-width: 0; overflow-x: clip; overflow-clip-margin: 4px; }
+    /* Vista: a equacao na fonte do passo (MathJax), por cima do campo quando
+       ele nao esta em edicao. Deixa o clique passar (pointer-events: none):
+       o campo embaixo recebe o foco, ja com o cursor no ponto clicado. */
+    .passo-vista {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      padding: 0.5rem 0.8rem;
+      overflow: hidden;
+      font-size: 1.75rem;
+      color: var(--texto);
+      background: var(--fundo-campo);
+      border: 1px solid var(--linha-forte);
+      border-radius: var(--raio) var(--raio) 0 0;
+      pointer-events: none;
+    }
+    .passo.com-vista:not(.editando) .passo-vista { display: flex; }
+    .passo.ativo .passo-vista { border-color: var(--acento); }
+    .passo-vista svg { max-width: 100%; height: auto; }
+    .passo-vista mjx-container { margin: 0 !important; }
     .passo-coment {
       flex: 1 1 auto;
       min-width: 0;
@@ -1562,8 +1583,8 @@
         }
         barra.appendChild(b);
       });
-      barra.appendChild(seletorDeFonte(passo ? passo.fonte : fontePadrao(), "Fonte do SVG e do PNG deste passo", (v) => {
-        if (passo) { passo.fonte = v; demonstracaoMudou(); }   // fica no rascunho
+      barra.appendChild(seletorDeFonte(passo ? passo.fonte : fontePadrao(), "Fonte deste passo (na tela, no SVG e no PNG)", (v) => {
+        if (passo) { passo.fonte = v; demonstracaoMudou(); atualizarVista(passo); }   // fica no rascunho
       }));
       return barra;
     }
@@ -1595,6 +1616,49 @@
       mf.style.fontSize = (base * escala).toFixed(1) + "px";
     }
     function caberTodos() { passos.forEach((p) => caberNaLargura(p.mf)); }
+
+    /* ---------------------------------------------------------------------
+       VER / EDITAR
+       ---------------------------------------------------------------------
+       O MathLive so desenha com a fonte dele (KaTeX). Fora da edicao, cada
+       passo mostra por cima do campo a "vista": o mesmo SVG da exportacao
+       (convencoes e fonte do passo), na cor do tema. O campo recebendo o
+       foco (clique, Tab, teclado virtual) entra em edicao e a vista some;
+       ao sair, a vista e refeita. Passo vazio ou LaTeX que o MathJax nao
+       entende: fica o campo.
+       --------------------------------------------------------------------- */
+    function ligarVista(passo) {
+      const mf = passo.mf;
+      mf.addEventListener("focusin", () => passo.li.classList.add("editando"));
+      mf.addEventListener("focusout", () => setTimeout(() => {
+        // Janela perdeu o foco (Alt+Tab): continua em edicao, o foco volta ao campo
+        if (!document.hasFocus() || document.activeElement === mf) return;
+        passo.li.classList.remove("editando");
+        atualizarVista(passo);
+      }, 0));
+    }
+
+    async function latexParaVista(latex, fonte) {
+      const MJ = await carregarMathJax(fonte);
+      const no = await MJ.tex2svgPromise(latex, { display: true });
+      const svg = no.querySelector("svg");
+      if (!svg || no.querySelector("[data-mjx-error]")) throw new Error("TeX");
+      return document.importNode(svg, true);
+    }
+
+    function atualizarVista(passo) {
+      const versao = ++passo.versaoVista;            // so a ultima pedida entra
+      const latex = passo.latex.trim();
+      if (!latex) { passo.li.classList.remove("com-vista"); return; }
+      const render = coresParaRender(aplicarConvencoes(removerCaixinhas(latex), opcoesAtuais()));
+      latexParaVista(render, passo.fonte).then((svg) => {
+        if (versao !== passo.versaoVista) return;
+        passo.vista.replaceChildren(svg);
+        passo.li.classList.add("com-vista");
+      }, () => {
+        if (versao === passo.versaoVista) passo.li.classList.remove("com-vista");
+      });
+    }
 
     // Teclas fisicas que o MathLive nao trata como queremos:
     // - "/" vindo de uma tecla que nao e a Slash do teclado americano (no
@@ -1705,7 +1769,7 @@
       alvo.setValue(areaLatex.value, { silenceNotifications: true });
       requestAnimationFrame(() => caberNaLargura(alvo));
       const p = passos.find((x) => x.mf === alvo);
-      if (p) { p.latex = limparLatexDoCampo(alvo.getValue("latex")); demonstracaoMudou(); }
+      if (p) { p.latex = limparLatexDoCampo(alvo.getValue("latex")); demonstracaoMudou(); atualizarVista(p); }
       sincronizando = false;
     }
 
@@ -2140,8 +2204,13 @@
       const botoes = document.createElement("div");
       botoes.className = "passo-botoes";
 
-      const passo = { latex, comentario, li, mf, input, fonte: fonteValida(fonte) };
+      const vista = document.createElement("div");
+      vista.className = "passo-vista";
+      vista.setAttribute("aria-hidden", "true");      // o campo embaixo continua sendo o elemento acessivel
+      caixaEq.appendChild(vista);
+      const passo = { latex, comentario, li, mf, input, fonte: fonteValida(fonte), vista, versaoVista: 0 };
       const indiceDe = () => passos.indexOf(passo);
+      ligarVista(passo);
 
       botoes.append(
         botaoPasso("subir", "↑", "Mover para cima", () => moverPasso(indiceDe(), -1)),
@@ -2170,6 +2239,7 @@
       passos.splice(indice, 0, passo);
       demonstracaoMudou();
       if (focar) { mf.focus(); mf.executeCommand("moveToMathfieldEnd"); }
+      else atualizarVista(passo);
       if (!campoAtivo) ativarCampo(mf);
       requestAnimationFrame(() => caberNaLargura(mf));   // equacao reaberta ou importada
       return passo;
@@ -2351,6 +2421,9 @@
       });
       ["op-alinhar", "op-numerar", "op-virgula", "op-exp", "op-trig", "op-padrao"].forEach((id) =>
         $(id).addEventListener("change", demonstracaoMudou));
+      // A vista mostra a saida: as convencoes mudam o que se ve
+      ["op-virgula", "op-exp", "op-trig", "op-padrao"].forEach((id) =>
+        $(id).addEventListener("change", () => passos.forEach(atualizarVista)));
       $("latex-demo").addEventListener("focus", (e) => e.target.select());
     }
 

@@ -7,6 +7,7 @@
    4. exporta o LaTeX align da demonstracao e compara com o esperado
    5. copia um PNG e confere que a area de transferencia contem imagem
    6. o botao LaTeX do passo mostra/esconde o LaTeX; a fonte e por passo
+   7. fora da edicao o passo mostra a equacao na fonte dele (vista MathJax)
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const path = require("node:path");
@@ -195,4 +196,25 @@ test("6. LaTeX escondido por passo e fonte por passo", async () => {
   // O botao de copiar LaTeX copia o passo da barra, mesmo sem estar em foco
   await passo(2).locator('[data-acao="latex"]').click();
   await expect.poll(() => page.evaluate(() => window.lqtsmNativo.lerTexto())).toBe("x=y");
+});
+
+test("7. ver/editar: fora da edicao, a equacao aparece na fonte do passo", async () => {
+  const passo = (i) => page.locator(".passo").nth(i);
+  const vista = (i) => passo(i).locator(".passo-vista");
+  // Passo 3 em edicao; o passo 1 (fora da edicao) mostra a vista em SVG
+  await campos().nth(2).click();
+  await expect(passo(2)).toHaveClass(/editando/);
+  await expect(vista(2)).toBeHidden();
+  await expect(vista(0)).toBeVisible();
+  await expect(vista(0).locator("svg")).toHaveCount(1);
+  // Trocar a fonte do passo 1 redesenha a vista com outra fonte
+  const antes = await vista(0).innerHTML();
+  await passo(0).locator(".passo-barra select").selectOption("pagella");
+  await expect.poll(() => vista(0).innerHTML()).not.toBe(antes);
+  // Clicar na vista passa o clique ao campo: entra em edicao e a vista some
+  await vista(0).click({ force: true });
+  await expect(passo(0)).toHaveClass(/editando/);
+  await expect(vista(0)).toBeHidden();
+  // E o passo 3, que perdeu o foco, volta a mostrar a vista
+  await expect(vista(2)).toBeVisible();
 });
