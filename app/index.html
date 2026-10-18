@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<!--
+  EDITOR DE EQUACOES | LQTSM - UERJ
+  ==========================================================================
+  Pagina unica e autocontida (CSS e JS inline). Bibliotecas externas so por
+  CDN e com versao fixada:
+    - MathLive 0.110.0 (cdn.jsdelivr.net) .......... campo de edicao visual
+    - MathJax 3.2.2, tex-svg (cdn.jsdelivr.net) ..... so na exportacao
+                                                      (MathML, SVG e PNG)
+    - IBM Plex Sans e IBM Plex Mono (Google Fonts)
+
+  SUPOSICOES (o pedido deixava em aberto)
+  1. A pagina fica em /editor-equacoes/index.html do site lqtsm.com.br e
+     volta para Materiais > Ferramentas por "../materiais.html#ferramentas".
+     Publicada sozinha em outro lugar, so esse link precisa ser trocado.
+  2. O MathML e gerado pelo MathJax (tex2mml) a partir do LaTeX ja
+     convertido pelas convencoes, e nao pelo MathLive: o MathJax entrega um
+     <math> completo, com xmlns e display="block", que o Word e o
+     LibreOffice/OnlyOffice reconhecem ao colar. Se o MathJax nao carregar,
+     a pagina usa o MathML do MathLive como reserva.
+  3. As convencoes valem para TODAS as saidas (copiar, equation, MathML,
+     SVG, PNG). O campo e o textarea mostram sempre o LaTeX original.
+  4. O historico guarda o LaTeX original (sem convencoes), para "Reabrir"
+     devolver ao campo exatamente o que foi digitado.
+  5. SVG: o MathJax mede em "ex"; a conversao usa 1 ex = 10 px (fonte de
+     20 px). A cor sai preta fixa (#000) no SVG e no PNG, em vez de
+     currentColor, para abrir igual no Inkscape, no Word e no tema escuro.
+  6. Copiar MathML coloca o texto do <math> na area de transferencia como
+     texto simples; o Word converte ao colar com "Manter somente texto"
+     desligado (Colar especial > Texto nao formatado tambem funciona).
+  7. Demonstracao: lista de passos (equacao + comentario) abaixo do editor,
+     cada um com o seu <math-field>. Exporta como align (justificativa a
+     direita com && \text{}, \nonumber nas linhas, alinhado no primeiro
+     sinal de relacao) e, via MathJax, como MathML/SVG/PNG (aligned com os
+     comentarios em cinza). O rascunho fica no localStorage.
+  8. Cor: \textcolor com nomes do xcolor (red, blue, green, orange, purple,
+     teal, magenta), que o MathLive e o LaTeX entendem; no SVG/PNG esses
+     nomes viram os tons da paleta da pagina (CORES).
+  9. Ferramentas recentes: as 30 ultimas teclas do teclado virtual ficam na
+     barra "Recentes" sob o campo e, quando o teclado abre de novo, na
+     primeira linha de cada aba (o MathLive nao redesenha abas abertas).
+  ==========================================================================
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor de equações | LQTSM — UERJ</title>
+  <meta name="description"
+    content="Editor visual de equações do LQTSM: digite a equação, veja o LaTeX ao lado e copie como LaTeX, equation ou MathML, ou baixe em SVG e PNG.">
+  <link rel="stylesheet" href="vendor/fontes/ibm-plex.css">
+
+  <style>
+    /* ---------------------------------------------------------------------
+       CORES E MEDIDAS (tema claro; o escuro redefine abaixo)
+       --------------------------------------------------------------------- */
+    :root {
+      --fundo: #fbfbfa;
+      --fundo-campo: #ffffff;
+      --texto: #2b2d31;
+      --texto-suave: #5d6168;
+      --linha: #d9dbde;
+      --linha-forte: #b4b8be;
+      --acento: #1f4e8c;          /* azul-tinta: foco e botao principal */
+      --acento-texto: #ffffff;
+      --acento-suave: #e8eef7;
+      --erro: #a8322b;
+      --ok: #2f6b3a;
+      --raio: 4px;
+      --fonte-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --fonte-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+      color-scheme: light;
+    }
+
+    /* Tema: segue o sistema (prefers-color-scheme), salvo escolha no botao
+       "Tema", guardada em data-tema no <html> (claro | escuro). */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-tema="claro"]) {
+        --fundo: #16181b;
+        --fundo-campo: #1d2024;
+        --texto: #e4e6e9;
+        --texto-suave: #a2a7ae;
+        --linha: #33373d;
+        --linha-forte: #4a4f57;
+        --acento: #8db4ec;
+        --acento-texto: #10213a;
+        --acento-suave: #1e2a3b;
+        --erro: #f08f86;
+        --ok: #8fd19b;
+        color-scheme: dark;
+      }
+    }
+    :root[data-tema="escuro"] {
+      --fundo: #16181b;
+      --fundo-campo: #1d2024;
+      --texto: #e4e6e9;
+      --texto-suave: #a2a7ae;
+      --linha: #33373d;
+      --linha-forte: #4a4f57;
+      --acento: #8db4ec;
+      --acento-texto: #10213a;
+      --acento-suave: #1e2a3b;
+      --erro: #f08f86;
+      --ok: #8fd19b;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }   /* vence os display: flex/grid abaixo */
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      margin: 0;
+      background: var(--fundo);
+      color: var(--texto);
+      font: 400 1rem/1.5 var(--fonte-ui);
+    }
+
+    .pagina {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem;
+    }
+
+    a { color: var(--acento); }
+
+    :focus-visible {
+      outline: 2px solid var(--acento);
+      outline-offset: 2px;
+    }
+
+    /* ---------------------------------------------------------------------
+       CABECALHO
+       --------------------------------------------------------------------- */
+    .trilha {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--texto-suave);
+    }
+    .trilha a { text-decoration: none; }
+    .trilha a:hover { text-decoration: underline; }
+    .trilha { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .tema { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+
+    h1 {
+      margin: 0.25rem 0 0.25rem;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .intro {
+      margin: 0 0 1.5rem;
+      max-width: 62ch;
+      color: var(--texto-suave);
+    }
+
+    kbd {
+      font: 500 0.8em var(--fonte-mono);
+      padding: 0 0.3em;
+      border: 1px solid var(--linha-forte);
+      border-radius: 3px;
+      background: var(--fundo-campo);
+      color: var(--texto);
+    }
+
+    /* ---------------------------------------------------------------------
+       CAMPO DE EQUACAO (elemento dominante)
+       --------------------------------------------------------------------- */
+    .rotulo {
+      display: block;
+      margin: 0 0 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+    }
+
+    math-field {
+      display: block;
+      width: 100%;
+      min-height: 5.5rem;
+      padding: 1rem 1.25rem;
+      font-size: 2rem;
+      color: var(--texto);
+      background: var(--fundo-campo);
+      border: 1px solid var(--linha-forte);
+      border-radius: var(--raio);
+      /* Variaveis do proprio MathLive */
+      --caret-color: var(--acento);
+      --selection-background-color: var(--acento-suave);
+      --selection-color: var(--texto);
+      --contains-highlight-background-color: transparent;
+      --smart-fence-color: var(--texto-suave);
+    }
+    math-field:focus-within {
+      outline: 2px solid var(--acento);
+      outline-offset: 1px;
+    }
+    math-field::part(virtual-keyboard-toggle),
+    math-field::part(menu-toggle) {
+      color: var(--texto-suave);
+    }
+
+    .rapidas-linha .dica { margin: 0; flex: 1 1 280px; }
+    #btn-teclado[aria-pressed="true"] {
+      color: var(--acento-texto);
+      background: var(--acento);
+      border-color: var(--acento);
+    }
+
+    /* Teclado virtual do MathLive: acento do site e espaco no fim da pagina
+       para o teclado nao cobrir os botoes (ver ajustarEspacoTeclado) */
+    body {
+      --keyboard-accent-color: var(--acento);
+      /* Teclado compacto: teclas mais baixas e fontes menores, mesma quantidade de funcoes */
+      --keycap-height: 30px;
+      --keycap-max-width: 44px;
+      --keycap-gap: 3px;
+      --keycap-font-size: 15px;
+      --keycap-small-font-size: 10.5px;
+      --keycap-extra-small-font-size: 9px;
+      --keycap-shift-font-size: 10px;
+      --keycap-glyph-size: 14px;
+      --keyboard-toolbar-font-size: 100%;
+      --keyboard-padding-top: 3px;
+      --keyboard-padding-bottom: 2px;
+    }
+    /* MathLive imprime as abas e os botoes de acao com tamanhos proprios */
+    .MLK__toolbar .left > div { padding: 2px 8px; }
+    .MLK__toolbar .right .action { width: 28px; height: 28px; }
+    body.com-teclado { padding-bottom: var(--altura-teclado, 0px); }
+
+    /* Ferramentas rapidas (recentes e cores) */
+    .rapidas {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-top: 0.25rem;
+      padding: 0.6rem 0;
+      border-top: 1px solid var(--linha);
+      border-bottom: 1px solid var(--linha);
+    }
+    .rapidas-linha {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.6rem;
+    }
+    .rotulo-inline {
+      min-width: 7.5rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+    }
+    .recentes, .cores {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .recentes button {
+      min-width: 2.4rem;
+      min-height: 2.2rem;
+      padding: 0.15rem 0.5rem;
+      font-size: 1rem;
+      line-height: 1;
+      background: var(--fundo-campo);
+    }
+    .recentes button .ML__latex { font-size: 1.05rem; }
+    .cores button {
+      width: 1.6rem;
+      height: 1.6rem;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid var(--fundo);
+      box-shadow: 0 0 0 1px var(--linha-forte);
+    }
+    .cores button.sem-cor {
+      width: auto;
+      height: auto;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--raio);
+      font-size: 0.82rem;
+      box-shadow: none;
+      border: 1px solid var(--linha-forte);
+    }
+
+    /* Demonstracao */
+    .demo { margin-top: 1.25rem; }
+    .demo-toda {
+      padding-top: 1rem;
+      border-top: 1px solid var(--linha);
+    }
+    .demo-topo h2 {
+      margin: 0 0 0.3rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+    }
+    .demo-topo .dica { max-width: 70ch; }
+    ol.passos {
+      list-style: none;
+      margin: 0.75rem 0 0;
+      padding: 0;
+    }
+    /* Passo: numero | equacao (largura toda); por baixo, colada na equacao,
+       uma faixa com o comentario (fonte menor) e os botoes do passo */
+    .passo {
+      display: grid;
+      grid-template-columns: 1.6rem minmax(0, 1fr);
+      gap: 0 0.6rem;
+      align-items: start;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid var(--linha);
+    }
+    .passo-n { padding-top: 1.1rem; }
+    .passo-rodape {
+      grid-column: 2;
+      display: flex;
+      align-items: center;
+      background: var(--fundo);
+      border: 1px solid var(--linha-forte);
+      border-top: 0;
+      border-radius: 0 0 var(--raio) var(--raio);
+    }
+    .passo.ativo .passo-rodape { border-color: var(--acento); }
+    .passo-n {
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--texto-suave);
+      text-align: right;
+    }
+    .passo math-field {
+      min-height: 3.6rem;
+      padding: 0.5rem 0.8rem;
+      font-size: 1.75rem;
+      border-radius: var(--raio) var(--raio) 0 0;   /* emenda com o comentario */
+    }
+    .passo.ativo math-field { border-color: var(--acento); }
+    .passo.ativo .passo-n { color: var(--acento); font-weight: 600; }
+    .passo math-field::part(menu-toggle) { display: none; }
+    .passo-eq { min-width: 0; overflow-x: clip; overflow-clip-margin: 4px; }
+    .passo-coment {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 0.3rem 0.8rem;
+      font: 400 0.82rem/1.4 var(--fonte-ui);
+      color: var(--texto-suave);
+      background: transparent;
+      border: 0;
+      border-radius: 0 0 0 var(--raio);
+    }
+    .passo-coment:focus-visible { outline-offset: -2px; color: var(--texto); }
+    .passo-botoes {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 0.1rem;
+      padding: 0 0.25rem;
+      border-left: 1px solid var(--linha);
+    }
+    .passo-botoes button {
+      width: 1.7rem;
+      height: 1.7rem;
+      padding: 0;
+      font-size: 0.85rem;
+      line-height: 1;
+      color: var(--texto-suave);
+      border-color: transparent;
+    }
+    .passo-botoes button:hover { color: var(--texto); border-color: var(--linha-forte); }
+    .passo-botoes button:disabled { opacity: 0.3; cursor: default; }
+    .passo-botoes .apagar:hover { color: var(--erro); }
+    .opcoes--demo { margin-top: 0.9rem; }
+    .importar { margin-top: 0.75rem; }
+    .importar .acoes { margin-top: 0.5rem; }
+    .detalhes { margin-top: 0.9rem; }
+    .detalhes summary {
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--acento);
+    }
+    .detalhes textarea { margin-top: 0.5rem; }
+    @media (max-width: 700px) {
+      .passo-botoes button { width: 2rem; height: 2rem; }   /* dedo */
+    }
+
+    .lugar-campo {
+      min-height: 5.5rem;
+      /* O conteudo interno do MathLive pode passar da borda ao redimensionar;
+         corta so na horizontal, deixando o contorno de foco visivel */
+      overflow-x: clip;
+      overflow-clip-margin: 4px;
+    }
+
+    .aviso-campo {
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--erro);
+      border-radius: var(--raio);
+      color: var(--erro);
+    }
+
+    .dica {
+      margin: 0.5rem 0 0;
+      font-size: 0.85rem;
+      color: var(--texto-suave);
+    }
+
+    /* ---------------------------------------------------------------------
+       LaTeX
+       --------------------------------------------------------------------- */
+    .bloco { margin-top: 1.5rem; }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 5.5rem;
+      padding: 0.75rem 0.9rem;
+      resize: vertical;
+      font: 400 0.95rem/1.5 var(--fonte-mono);
+      color: var(--texto);
+      background: var(--fundo-campo);
+      border: 1px solid var(--linha);
+      border-radius: var(--raio);
+    }
+    textarea:focus-visible { outline-offset: 1px; }
+
+    /* ---------------------------------------------------------------------
+       BOTOES
+       --------------------------------------------------------------------- */
+    .acoes {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    button {
+      font: 500 0.9rem/1.2 var(--fonte-ui);
+      padding: 0.55rem 0.9rem;
+      color: var(--texto);
+      background: transparent;
+      border: 1px solid var(--linha-forte);
+      border-radius: var(--raio);
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--texto-suave); }
+    button:disabled { opacity: 0.5; cursor: progress; }
+
+    button.principal {
+      color: var(--acento-texto);
+      background: var(--acento);
+      border-color: var(--acento);
+    }
+    button.principal:hover { filter: brightness(1.08); }
+
+    button.discreto {
+      border-color: transparent;
+      color: var(--texto-suave);
+    }
+    button.discreto:hover { color: var(--erro); border-color: var(--linha); }
+
+    .separador { flex: 1 1 auto; }
+    .acoes + .acoes { margin-top: 0.5rem; }
+    .grupo {
+      min-width: 6.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+    }
+
+    /* ---------------------------------------------------------------------
+       CONVENCOES
+       --------------------------------------------------------------------- */
+    fieldset {
+      margin: 1.5rem 0 0;
+      padding: 0.75rem 0 0;
+      border: 0;
+      border-top: 1px solid var(--linha);
+    }
+    legend {
+      padding: 0 0.5rem 0 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+    }
+    .opcoes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 0.4rem 1.5rem;
+      margin-top: 0.4rem;
+    }
+    .opcoes label {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .opcoes input { accent-color: var(--acento); }
+    .opcoes code {
+      font: 400 0.82rem var(--fonte-mono);
+      color: var(--texto-suave);
+    }
+
+    /* ---------------------------------------------------------------------
+       STATUS
+       --------------------------------------------------------------------- */
+    .status {
+      min-height: 1.5rem;
+      margin: 0.75rem 0 0;
+      font-size: 0.9rem;
+      color: var(--ok);
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+    .status.erro { color: var(--erro); }
+    .status.sumindo { opacity: 0; }
+
+    /* ---------------------------------------------------------------------
+       HISTORICO
+       --------------------------------------------------------------------- */
+    .historico-topo {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 2rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--linha);
+    }
+    .historico-topo h2 {
+      margin: 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+    }
+
+    ol.historico {
+      list-style: none;
+      margin: 0.5rem 0 0;
+      padding: 0;
+    }
+    ol.historico li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.25rem 1rem;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--linha);
+    }
+    .h-latex {
+      overflow-x: auto;
+      white-space: nowrap;
+      font: 400 0.88rem/1.4 var(--fonte-mono);
+    }
+    .h-meta {
+      grid-column: 1;
+      font-size: 0.78rem;
+      color: var(--texto-suave);
+    }
+    ol.historico button {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      padding: 0.4rem 0.75rem;
+    }
+    .vazio {
+      margin: 0.5rem 0 0;
+      font-size: 0.9rem;
+      color: var(--texto-suave);
+    }
+
+    .rodape {
+      margin-top: 2.5rem;
+      font-size: 0.8rem;
+      color: var(--texto-suave);
+    }
+
+    /* Celular: botoes ocupam a largura em duas colunas */
+    @media (max-width: 520px) {
+      .pagina { padding: 1rem 0.75rem 2.5rem; }
+      math-field { font-size: 1.6rem; padding: 0.75rem; }
+      .acoes button { flex: 1 1 calc(33% - 0.5rem); }
+      .grupo { flex: 1 1 100%; }
+      .separador { display: none; }
+      /* Teclado no celular: rotulos longos (unidades, equacoes prontas) menores
+         e cortados na borda da tecla, sem invadir a vizinha */
+      .MLK__keycap { overflow: hidden; }
+      .MLK__keycap.small { font-size: 0.55rem !important; }
+      body { --keycap-height: 34px; }                 /* um pouco mais alto para o dedo */
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+
+  <!-- Bibliotecas por CDN, versoes fixadas. O MathJax NAO e carregado aqui:
+       so entra na primeira exportacao (ver carregarMathJax). -->
+  <!-- Folha de estilo estatica do MathLive: so para os rotulos das ferramentas
+       recentes, que sao desenhados fora do campo -->
+  <link rel="stylesheet" href="vendor/mathlive/mathlive-static.css">
+  <script defer src="vendor/mathlive/mathlive.min.js"
+    onerror="window.__falhaMathLive = true"></script>
+</head>
+
+<body>
+  <main class="pagina">
+
+    <p class="trilha"><a href="../materiais.html#ferramentas">LQTSM · Materiais › Ferramentas</a>
+      <button type="button" class="discreto tema" id="btn-tema" title="Alternar tema claro, escuro ou automático">Tema: automático</button></p>
+    <h1>Editor de equações</h1>
+    <p class="intro">Cada linha é um passo da demonstração: a equação à esquerda, a justificativa à direita.
+      <kbd>/</kbd> cria fração, <kbd>^</kbd> e <kbd>_</kbd> criam expoente e índice, <kbd>\</kbd> abre um comando
+      LaTeX, <kbd>Enter</kbd> abre um passo novo abaixo e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> copia o LaTeX do passo.
+      Para uma equação só, use um passo só.</p>
+
+    <!-- FERRAMENTAS RAPIDAS: recentes, cor e teclado (agem no passo em foco) -->
+    <div class="rapidas" id="rapidas" hidden>
+      <div class="rapidas-linha" id="linha-recentes" hidden>
+        <span class="rotulo-inline">Recentes</span>
+        <div class="recentes" id="recentes" role="group" aria-label="Últimas ferramentas usadas"></div>
+      </div>
+      <div class="rapidas-linha">
+        <span class="rotulo-inline">Cor da seleção</span>
+        <div class="cores" id="cores" role="group" aria-label="Cor do trecho selecionado"></div>
+      </div>
+      <div class="rapidas-linha">
+        <span class="rotulo-inline">Teclado</span>
+        <button type="button" id="btn-teclado" aria-pressed="false" hidden>
+          <span aria-hidden="true">⌨</span> Teclado de símbolos</button>
+        <span class="dica">Abas: básico, funções, cálculo, grego, físico-química, quântica, relações, matrizes e
+          texto. <strong>Selecione um trecho e escolha a ferramenta</strong>: a seleção vira o argumento
+          (integrando, radicando, numerador…).</span>
+      </div>
+    </div>
+
+    <!-- PASSOS -->
+    <section class="demo" aria-labelledby="titulo-demo">
+      <h2 class="rotulo" id="titulo-demo">Passos</h2>
+      <!-- Os <math-field> dos passos sao criados pelo script, depois de apontar
+           as fontes do MathLive para o CDN (ver iniciarCampo). -->
+      <ol class="passos" id="passos"></ol>
+      <p class="aviso-campo" id="aviso-mathlive" hidden></p>
+
+      <div class="acoes">
+        <button type="button" class="principal" id="btn-passo-vazio">Novo passo</button>
+        <button type="button" id="btn-passo-importar" aria-expanded="false" aria-controls="importar">Importar de LaTeX…</button>
+        <span class="separador"></span>
+        <button type="button" class="discreto" id="btn-demo-limpar">Limpar tudo</button>
+      </div>
+
+      <div class="importar" id="importar" hidden>
+        <label class="rotulo" for="importar-texto">Cole um ambiente align (ou linhas separadas por \\)</label>
+        <textarea id="importar-texto" spellcheck="false" rows="4"
+          placeholder="\begin{align}&#10;  x &= y && \text{hipótese} \\&#10;  2x &= 2y && \text{multiplicando por 2}&#10;\end{align}"></textarea>
+        <div class="acoes">
+          <button type="button" id="btn-importar-ok">Acrescentar como passos</button>
+          <button type="button" class="discreto" id="btn-importar-fechar">Fechar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASSO EM FOCO: LaTeX e exportacao de um passo -->
+    <section class="bloco" aria-labelledby="titulo-passo">
+      <label class="rotulo" for="latex" id="titulo-passo">LaTeX do passo <span id="n-passo">1</span></label>
+      <textarea id="latex" spellcheck="false" autocomplete="off" autocapitalize="off"
+        placeholder="\Delta_{\mathrm{r}}G^\ominus=-nFE^\ominus"></textarea>
+      <p class="dica">O passo em foco e este LaTeX ficam sempre iguais: edite qualquer um dos dois. As convenções
+        abaixo só mudam o que é copiado ou exportado.</p>
+      <div class="acoes" role="group" aria-label="Copiar o passo em foco">
+        <span class="grupo">Copiar passo</span>
+        <button type="button" class="principal" id="btn-latex">LaTeX</button>
+        <button type="button" id="btn-equation">equation</button>
+        <button type="button" id="btn-mathml">MathML</button>
+        <button type="button" id="btn-copiar-svg">SVG</button>
+        <button type="button" id="btn-copiar-png">PNG</button>
+      </div>
+      <div class="acoes" role="group" aria-label="Baixar o passo em foco">
+        <span class="grupo">Baixar passo</span>
+        <button type="button" id="btn-svg">SVG</button>
+        <button type="button" id="btn-png">PNG</button>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- DEMONSTRACAO INTEIRA -->
+    <section class="bloco demo-toda" aria-labelledby="titulo-toda">
+      <span class="rotulo" id="titulo-toda">Demonstração inteira</span>
+      <div class="opcoes opcoes--demo">
+        <label><input type="checkbox" id="op-alinhar" checked>
+          <span>Alinhar no primeiro sinal de relação <code>=, ≤, ≈, →, ⇌…</code></span></label>
+        <label><input type="checkbox" id="op-numerar">
+          <span>Numerar a última linha (as outras levam <code>\nonumber</code>)</span></label>
+      </div>
+      <div class="acoes" role="group" aria-label="Copiar a demonstração">
+        <span class="grupo">Copiar tudo</span>
+        <button type="button" class="principal" id="btn-demo-align">LaTeX (align)</button>
+        <button type="button" id="btn-demo-mathml">MathML</button>
+        <button type="button" id="btn-demo-copiar-svg">SVG</button>
+        <button type="button" id="btn-demo-copiar-png">PNG</button>
+      </div>
+      <div class="acoes" role="group" aria-label="Baixar a demonstração">
+        <span class="grupo">Baixar tudo</span>
+        <button type="button" id="btn-demo-svg">SVG</button>
+        <button type="button" id="btn-demo-png">PNG</button>
+      </div>
+      <p class="status" id="status-demo" role="status" aria-live="polite"></p>
+      <details class="detalhes">
+        <summary>Ver o LaTeX da demonstração</summary>
+        <textarea id="latex-demo" readonly spellcheck="false" rows="6" aria-label="LaTeX da demonstração"></textarea>
+        <p class="dica">Cores usam <code>\textcolor</code>: no preâmbulo, <code>\usepackage{xcolor}</code>.
+          Comentários saem como <code>\text{…}</code> à direita, no estilo justificativa.</p>
+      </details>
+    </section>
+
+    <!-- CONVENCOES -->
+    <fieldset>
+      <legend>Convenções na saída</legend>
+      <div class="opcoes">
+        <label><input type="checkbox" id="op-virgula" checked>
+          <span>Vírgula decimal <code>3.5 → 3{,}5</code></span></label>
+        <label><input type="checkbox" id="op-exp" checked>
+          <span>Exponencial como potência <code>\exp(x) → e^{x}</code></span></label>
+        <label><input type="checkbox" id="op-trig" checked>
+          <span>Seno e tangente em português <code>\sin → sen, \tan → tg</code></span></label>
+        <label><input type="checkbox" id="op-padrao">
+          <span>Estado padrão <code>^\circ → ^\ominus</code> (desligado por padrão: 30^\circ é ângulo)</span></label>
+      </div>
+    </fieldset>
+
+    <!-- HISTORICO -->
+    <div class="historico-topo">
+      <h2 id="titulo-historico">Últimas equações e demonstrações copiadas ou exportadas</h2>
+      <button type="button" class="discreto" id="btn-limpar-historico">Apagar histórico</button>
+    </div>
+    <ol class="historico" id="historico" aria-labelledby="titulo-historico"></ol>
+    <p class="vazio" id="historico-vazio">Nada por aqui ainda. Ao copiar ou exportar, a equação aparece nesta lista.</p>
+
+    <p class="rodape">Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.
+      Campo de edição: <a href="https://cortexjs.io/mathlive/" rel="noopener">MathLive</a> (MIT). Exportação:
+      <a href="https://www.mathjax.org/" rel="noopener">MathJax</a> (Apache 2.0).</p>
+  </main>
+
+  <script>
+    /* =====================================================================
+       CONFIGURACAO
+       ===================================================================== */
+    const TAMANHO_HISTORICO = 20;                 // equacoes guardadas
+    const ESCALA_PNG = 4;                          // PNG com 4x a resolucao do SVG
+    const MARGEM_PX = 4;                           // margem em volta da equacao no SVG (x4 no PNG)
+    const CHAVE_HISTORICO = "lqtsm-editor-equacoes-historico-v1";
+    const TAMANHO_RECENTES = 30;                   // ferramentas recentes na barra da pagina
+    const RECENTES_NO_TECLADO = 12;                // quantas cabem na linha do teclado virtual
+    const CHAVE_TEMA = "lqtsm-editor-equacoes-tema-v1";
+    const CHAVE_RECENTES = "lqtsm-editor-equacoes-recentes-v1";
+    const CHAVE_DEMONSTRACAO = "lqtsm-editor-equacoes-demonstracao-v1";
+    const NOME_ARQUIVO_DEMO = "demonstracao";      // demonstracao.svg, demonstracao.png
+    const COR_COMENTARIO = "#666666";              // cor dos comentarios no SVG/PNG da demonstracao
+    // Cores da selecao: nomes que o MathLive e o xcolor (LaTeX) entendem
+    const CORES = [
+      { nome: "red", rotulo: "vermelho", css: "#d62728" },
+      { nome: "blue", rotulo: "azul", css: "#1f4e8c" },
+      { nome: "green", rotulo: "verde", css: "#2e8b57" },
+      { nome: "orange", rotulo: "laranja", css: "#e07b00" },
+      { nome: "purple", rotulo: "roxo", css: "#7b3fa0" },
+      { nome: "teal", rotulo: "azul-petróleo", css: "#008080" },
+      { nome: "magenta", rotulo: "magenta", css: "#c2185b" },
+    ];
+    const PX_POR_EX = 10;                          // 1 ex do MathJax = 10 px (fonte de 20 px)
+    const COR_EXPORTACAO = "#000000";              // cor da equacao no SVG e no PNG
+    const NOME_ARQUIVO = "equacao";                // equacao.svg, equacao.png
+    const TEMPO_STATUS_MS = 2600;                  // mensagem de sucesso some depois disso
+    const TEMPO_ERRO_MS = 9000;                    // mensagem de erro fica mais tempo
+    const URL_MATHJAX = "vendor/mathjax/es5/tex-svg.js";
+    const URL_FONTES_MATHLIVE = "vendor/mathlive/fonts";
+    const ESPERA_MATHLIVE_MS = 12000;              // desiste do MathLive depois disso
+
+    /* =====================================================================
+       TECLADO VIRTUAL (abas proprias, no lugar das do MathLive)
+       ---------------------------------------------------------------------
+       Cada aba e uma lista de linhas; cada tecla e um objeto do MathLive:
+         latex     o que a tecla insere (e mostra, se nao houver label)
+         label     texto/HTML da tecla, quando o LaTeX ficaria grande demais
+         tooltip   dica ao passar o mouse
+         shift     o que a tecla vira com [shift] apertado
+         variants  opcoes que aparecem ao segurar a tecla
+         command   comando do MathLive (ex.: acrescentar linha na matriz)
+         arg       (nosso) onde entra o que estiver SELECIONADO, para teclas
+                   sem caixinha propria: "antes" = a tecla vem antes da selecao
+                   (sen, ln, Delta_r, somatorio...), "depois" = a tecla vem
+                   depois (unidades, %, x10^n). Ver aplicarNaSelecao.
+       Marcadores no LaTeX:
+         #0  ARGUMENTO PRINCIPAL: recebe a selecao; sem selecao, vira caixinha
+         #@  idem, mas sem selecao pega o que esta logo antes do cursor
+             (usado em potencia, indice, acentos: 2x selecionado -> (2x)^2)
+         #?  caixinha vazia para preencher depois
+       Regra: TODA ferramenta com argumento tem #0 ou #@ no lugar onde a
+       selecao deve entrar (integrando, radicando, numerador, primeira
+       celula da matriz...). Operadores e relacoes (+, =, ->, ∈) poem a
+       selecao a esquerda; algarismos, letras e constantes substituem a
+       selecao, como digitar por cima.
+       Convencoes seguidas: d e partial em redondo (\mathrm{d}), estado
+       padrao com \ominus, exponencial como potencia e^{...}, descritores
+       em \mathrm{}, sen/tg/arcsen em portugues.
+       ===================================================================== */
+    const PEQ = "small";                            // classe de tecla com rotulo menor
+    const SEP = { class: "separator w5" };          // meio espaco entre grupos
+    const tecla = (latex, tooltip, extra = {}) => ({ latex, tooltip, ...extra });
+    const peq = (latex, tooltip, extra = {}) => ({ latex, tooltip, class: PEQ, ...extra });
+    // Teclas sem caixinha que se aplicam ao que estiver selecionado
+    const antes = (k) => ({ ...k, arg: "antes" });
+    const depois = (k) => ({ ...k, arg: "depois" });
+    const binario = (k) => ({ ...k, arg: "binario" });   // selecao  OP  caixinha (2x = _)
+
+    // Linha de navegacao repetida no fim de cada aba
+    const NAVEGACAO = [
+      "[left]", "[right]", "[up]", "[down]", SEP,
+      { label: "espaço", latex: "\\,", class: PEQ, tooltip: "Espaço fino (\\,)", width: 1.5, arg: "depois",
+        variants: [{ latex: "\\;", label: "médio" }, { latex: "\\quad", label: "quad" }, { latex: "\\qquad", label: "qquad" }] },
+      SEP, "[backspace]", "[hide-keyboard]",
+    ];
+
+    // Descritores usuais (redondos) para indices
+    const DESCRITORES = ["r", "f", "c", "m", "red", "ox", "sol", "abs", "calc", "obs", "máx", "min", "eq", "vap", "fus", "sub", "ads", "SHE"]
+      .map((d) => ({ latex: "#@_{\\mathrm{" + d + "}}", label: d }));
+
+    const unidade = (latex, tooltip) => depois(peq("\\," + latex, tooltip));
+    const funcao = (latex, tooltip, extra = {}) => antes(peq(latex, tooltip, extra));
+
+    const ABAS_TECLADO = [
+      {
+        label: "123", tooltip: "Básico: números, frações, potências e parênteses",
+        rows: [
+          ["[7]", "[8]", "[9]", tecla("\\frac{#@}{#?}", "Fração (ou digite /)"), SEP,
+            tecla("#@^{2}", "Ao quadrado"), tecla("#@^{#?}", "Potência (ou ^)"), tecla("#@_{#?}", "Índice (ou _)"),
+            tecla("#@_{#?}^{#?}", "Índice e potência"), tecla("\\sqrt{#0}", "Raiz quadrada"), tecla("\\sqrt[#?]{#0}", "Raiz n-ésima")],
+          ["[4]", "[5]", "[6]", binario(tecla("\\times", "Vezes", { variants: ["\\cdot", "\\ast", "\\star", "\\circ"] })), SEP,
+            binario(tecla("\\cdot", "Ponto de multiplicação")), antes(tecla("\\pm", "Mais ou menos", { variants: ["\\mp"] })),
+            tecla("\\left(#0\\right)", "Parênteses"), tecla("\\left[#0\\right]", "Colchetes"),
+            tecla("\\left\\lbrace #0\\right\\rbrace", "Chaves"), tecla("\\left|#0\\right|", "Módulo")],
+          ["[1]", "[2]", "[3]", "[-]", SEP,
+            binario(tecla("\\div", "Dividido")), "[=]", binario(tecla("\\approx", "Aproximadamente")), binario(tecla("\\neq", "Diferente")),
+            binario(tecla("<", "Menor", { shift: binario(tecla("\\le", "Menor ou igual")) })), binario(tecla(">", "Maior", { shift: binario(tecla("\\ge", "Maior ou igual")) }))],
+          ["[0]", "[.]", depois(peq("\\times10^{#?}", "Notação científica")), "[+]", SEP,
+            depois(tecla("\\%", "Por cento")), tecla("#@^{-1}", "Inverso"), tecla("#@'", "Linha (derivada)"), tecla("#@!", "Fatorial"),
+            peq("\\mathrm{#0}", "Texto redondo (\\mathrm): descritores, unidades", { label: "<span style='font-family:serif'>rm</span>" }),
+            peq("\\text{#0}", "Palavra (\\text)", { label: "abc" })],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "f(x)", tooltip: "Funções: trigonométricas em português, log, exponencial",
+        rows: [
+          [funcao("\\operatorname{sen}", "Seno", { shift: funcao("\\operatorname{arcsen}", "Arco-seno") }),
+            funcao("\\cos", "Cosseno", { shift: funcao("\\arccos", "Arco-cosseno") }),
+            funcao("\\operatorname{tg}", "Tangente", { shift: funcao("\\operatorname{arctg}", "Arco-tangente") }),
+            funcao("\\operatorname{cotg}", "Cotangente"), funcao("\\sec", "Secante"), funcao("\\operatorname{cossec}", "Cossecante"), SEP,
+            funcao("\\operatorname{senh}", "Seno hiperbólico"), funcao("\\cosh", "Cosseno hiperbólico"), funcao("\\operatorname{tgh}", "Tangente hiperbólica"), "[shift]"],
+          [funcao("\\ln", "Logaritmo natural"), funcao("\\log", "Logaritmo decimal"), funcao("\\log_{#?}", "Logaritmo na base"),
+            tecla("e^{#0}", "Exponencial (e^x)"), tecla("10^{#0}", "Potência de 10"), SEP,
+            peq("\\ln\\left(#0\\right)", "ln( )"), funcao("\\operatorname{sen}^{2}", "Seno ao quadrado"),
+            funcao("\\cos^{2}", "Cosseno ao quadrado"), tecla("\\mathrm{e}", "Número de Euler (redondo)"), tecla("\\pi", "Pi")],
+          [peq("f\\left(#0\\right)", "f( )"), peq("g\\left(#0\\right)", "g( )"), peq("f^{-1}", "Inversa"), peq("f\\circ g", "Composta"), SEP,
+            funcao("\\max", "Máximo"), funcao("\\min", "Mínimo"), peq("\\lfloor #0\\rfloor", "Piso"), peq("\\lceil #0\\rceil", "Teto"),
+            peq("\\binom{#0}{#?}", "Binomial"), funcao("\\operatorname{#?}", "Nome de função qualquer")],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "∫ d", tooltip: "Cálculo: derivadas, integrais, somatórios, operadores vetoriais",
+        rows: [
+          [peq("\\frac{\\mathrm{d}#0}{\\mathrm{d}#?}", "Derivada"), peq("\\frac{\\mathrm{d}^{2}#0}{\\mathrm{d}#?^{2}}", "Derivada segunda"),
+            peq("\\frac{\\partial #0}{\\partial #?}", "Derivada parcial"), peq("\\frac{\\partial^{2}#0}{\\partial #?^{2}}", "Parcial segunda"),
+            peq("\\frac{\\partial^{2}#0}{\\partial #?\\,\\partial #?}", "Parcial mista"),
+            peq("\\left(\\frac{\\partial #0}{\\partial #?}\\right)_{#?}", "Parcial com variável constante (termodinâmica)"), SEP,
+            antes(tecla("\\mathrm{d}", "d redondo (diferencial)")), antes(tecla("\\partial", "Parcial")),
+            antes(tecla("\\delta", "Variação infinitesimal")), antes(tecla("\\Delta", "Variação"))],
+          [peq("\\int #0\\,\\mathrm{d}#?", "Integral indefinida"), peq("\\int_{#?}^{#?}#0\\,\\mathrm{d}#?", "Integral definida"),
+            peq("\\iint #0\\,\\mathrm{d}#?\\,\\mathrm{d}#?", "Integral dupla"), peq("\\iiint #0\\,\\mathrm{d}#?\\,\\mathrm{d}#?\\,\\mathrm{d}#?", "Integral tripla"),
+            peq("\\oint #0\\,\\mathrm{d}#?", "Integral de linha fechada"), peq("\\left.#0\\right|_{#?}^{#?}", "Avaliar entre limites"), SEP,
+            funcao("\\sum_{#?}^{#?}", "Somatório"), funcao("\\sum_{#?=#?}^{\\infty}", "Série"), funcao("\\prod_{#?}^{#?}", "Produtório"),
+            funcao("\\lim_{#?\\to #?}", "Limite")],
+          [antes(tecla("\\nabla", "Nabla (gradiente)")), funcao("\\nabla^{2}", "Laplaciano"), funcao("\\nabla\\cdot", "Divergente"), funcao("\\nabla\\times", "Rotacional"), SEP,
+            tecla("\\dot{#@}", "Derivada temporal"), tecla("\\ddot{#@}", "Derivada temporal segunda"), tecla("#@''", "Duas linhas"),
+            tecla("\\infty", "Infinito"), binario(tecla("\\to", "Tende a")), peq("\\mathrm{d}#0", "Diferencial dx")],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "αβγ", tooltip: "Letras gregas (⇧ para maiúsculas; segure para variantes)",
+        rows: [
+          [tecla("\\alpha"), tecla("\\beta"), tecla("\\gamma", "", { shift: "\\Gamma" }), tecla("\\delta", "", { shift: "\\Delta" }),
+            tecla("\\varepsilon", "", { variants: ["\\epsilon"] }), tecla("\\zeta"), tecla("\\eta"),
+            tecla("\\theta", "", { shift: "\\Theta", variants: ["\\vartheta"] }), tecla("\\iota"), tecla("\\kappa")],
+          [tecla("\\lambda", "", { shift: "\\Lambda" }), tecla("\\mu"), tecla("\\nu"), tecla("\\xi", "", { shift: "\\Xi" }),
+            tecla("\\pi", "", { shift: "\\Pi", variants: ["\\varpi"] }), tecla("\\rho", "", { variants: ["\\varrho"] }),
+            tecla("\\sigma", "", { shift: "\\Sigma", variants: ["\\varsigma"] }), tecla("\\tau"),
+            tecla("\\upsilon", "", { shift: "\\Upsilon" }), tecla("\\varphi", "", { shift: "\\Phi", variants: ["\\phi"] })],
+          ["[shift]", tecla("\\chi"), tecla("\\psi", "", { shift: "\\Psi" }), tecla("\\omega", "", { shift: "\\Omega" }), SEP,
+            tecla("\\hbar", "h cortado"), tecla("\\ell", "l cursivo"), tecla("\\nabla"), tecla("\\aleph"), tecla("\\Re"), tecla("\\Im")],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "ΔG<sup>⊖</sup>", tooltip: "Físico-química: estado padrão, descritores, constantes, unidades e equações prontas",
+        rows: [
+          [tecla("#@^{\\ominus}", "Estado padrão (⊖)"), funcao("\\Delta_{\\mathrm{r}}", "Δ de reação"), funcao("\\Delta_{\\mathrm{f}}", "Δ de formação"),
+            funcao("\\Delta_{\\mathrm{c}}", "Δ de combustão"), funcao("\\Delta_{\\mathrm{vap}}", "Δ de vaporização"), funcao("\\Delta_{\\mathrm{fus}}", "Δ de fusão"),
+            funcao("\\Delta_{\\mathrm{sol}}", "Δ de solvatação"),
+            peq("#@_{\\mathrm{#?}}", "Índice redondo (segure: red, ox, sol...)", { variants: DESCRITORES }),
+            tecla("#@_{\\mathrm{m}}", "Grandeza molar"), tecla("#@^{\\ddagger}", "Estado de transição (‡)")],
+          [tecla("R", "Constante dos gases"), peq("k_{\\mathrm{B}}", "Constante de Boltzmann"), peq("N_{\\mathrm{A}}", "Constante de Avogadro"),
+            tecla("F", "Constante de Faraday"), tecla("h", "Constante de Planck"), tecla("\\hbar"), peq("p^{\\ominus}", "Pressão padrão"),
+            peq("\\left[#0\\right]", "Concentração [ ]"), peq("a_{#0}", "Atividade"), tecla("\\rightleftharpoons", "Equilíbrio")],
+          [unidade("\\mathrm{K}", "kelvin"), unidade("\\mathrm{V}", "volt"), unidade("\\mathrm{kJ\\,mol^{-1}}", "kJ/mol"), unidade("\\mathrm{kcal\\,mol^{-1}}", "kcal/mol"),
+            unidade("\\mathrm{J\\,K^{-1}\\,mol^{-1}}", "J/(K mol)"), unidade("\\mathrm{mol\\,L^{-1}}", "mol/L"), unidade("\\mathrm{bar}", "bar"),
+            unidade("\\mathrm{eV}", "elétron-volt"), unidade("\\mathrm{cm^{-1}}", "número de onda"), unidade("\\text{Å}", "ångström")],
+          [{ label: "ΔG = −RT ln K", latex: "\\Delta_{\\mathrm{r}}G^{\\ominus}=-RT\\ln K", class: PEQ, width: 2, tooltip: "Energia de Gibbs padrão e constante de equilíbrio" },
+            { label: "ΔG = ΔH − TΔS", latex: "\\Delta G=\\Delta H-T\\Delta S", class: PEQ, width: 2, tooltip: "Gibbs-Helmholtz (forma integrada)" },
+            { label: "ΔG = −nFE", latex: "\\Delta_{\\mathrm{r}}G^{\\ominus}=-nFE^{\\ominus}", class: PEQ, width: 2, tooltip: "Gibbs e potencial padrão" },
+            { label: "Nernst", latex: "E=E^{\\ominus}-\\frac{RT}{nF}\\ln Q", class: PEQ, width: 1.5, tooltip: "Equação de Nernst" },
+            { label: "Arrhenius", latex: "k=Ae^{-E_{\\mathrm{a}}/RT}", class: PEQ, width: 1.5, tooltip: "Equação de Arrhenius" },
+            { label: "μ = μ⊖ + RT ln a", latex: "\\mu_{#?}=\\mu_{#?}^{\\ominus}+RT\\ln a_{#?}", class: PEQ, width: 2, tooltip: "Potencial químico" }],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "ψ⟩", tooltip: "Quântica e vetores: operadores, bra-ket, acentos",
+        rows: [
+          [tecla("\\vec{#@}", "Vetor"), tecla("\\hat{#@}", "Operador / versor"), tecla("\\bar{#@}", "Barra"), tecla("\\tilde{#@}", "Til"),
+            tecla("\\overline{#@}", "Média / conjugado"), tecla("\\boldsymbol{#@}", "Negrito (vetor)"), SEP,
+            tecla("#@^{\\dagger}", "Adjunto (†)"), tecla("#@^{*}", "Complexo conjugado"), tecla("#@^{\\mathrm{T}}", "Transposta")],
+          [peq("|#0\\rangle", "Ket"), peq("\\langle #0|", "Bra"), peq("\\langle #0|#?\\rangle", "Braket"), peq("\\langle #?|#0|#?\\rangle", "Elemento de matriz (operador no meio)"),
+            peq("\\langle #0\\rangle", "Valor esperado"), peq("\\left[#0,#?\\right]", "Comutador"), SEP,
+            binario(tecla("\\otimes", "Produto tensorial")), binario(tecla("\\oplus", "Soma direta")), peq("\\left\\Vert #0\\right\\Vert", "Norma")],
+          [tecla("\\hbar"), tecla("\\psi", "", { shift: "\\Psi" }), tecla("\\phi", "", { shift: "\\Phi" }), peq("\\hat{H}", "Hamiltoniano"),
+            peq("\\hat{H}\\psi=E\\psi", "Equação de Schrödinger independente do tempo"),
+            peq("\\mathrm{i}\\hbar\\frac{\\partial\\Psi}{\\partial t}=\\hat{H}\\Psi", "Equação de Schrödinger dependente do tempo"),
+            funcao("-\\frac{\\hbar^{2}}{2m}\\nabla^{2}", "Energia cinética"), tecla("\\mathrm{i}", "Unidade imaginária (redonda)"),
+            peq("\\delta_{#?#?}", "Delta de Kronecker"), "[shift]"],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "≤ ⇌", tooltip: "Relações, setas e lógica",
+        rows: [
+          [tecla("\\equiv", "Idêntico / definido"), tecla("\\approx"), tecla("\\simeq"), tecla("\\sim"), tecla("\\propto", "Proporcional"),
+            tecla("\\neq"), tecla("\\ll"), tecla("\\gg"), tecla("\\le"), tecla("\\ge")],
+          [tecla("\\rightarrow", "Seta (reação)"), tecla("\\leftarrow"), tecla("\\leftrightarrow"), tecla("\\rightleftharpoons", "Equilíbrio"),
+            tecla("\\Rightarrow", "Implica"), tecla("\\Leftrightarrow", "Se e somente se"), depois(tecla("\\uparrow", "Gás")), depois(tecla("\\downarrow", "Precipitado")),
+            peq("\\xrightarrow{#0}", "Seta com condição (a seleção vai em cima)"), tecla("\\mapsto")],
+          [tecla("\\in"), tecla("\\notin"), tecla("\\subset"), tecla("\\subseteq"), tecla("\\cup"), tecla("\\cap"),
+            antes(tecla("\\forall")), antes(tecla("\\exists")), antes(tecla("\\therefore", "Portanto")), antes(tecla("\\because", "Porque"))],
+          [tecla("#@^{\\circ}", "Grau (ângulo)"), antes(tecla("\\angle", "Ângulo")), tecla("\\perp", "Perpendicular"), tecla("\\parallel", "Paralelo"),
+            depois(tecla("\\cdots")), depois(tecla("\\ldots")), depois(tecla("\\vdots")), depois(tecla("\\ddots")), antes(tecla("\\neg")), binario(tecla("\\land", "", { variants: [binario(tecla("\\lor"))] }))],
+          NAVEGACAO,
+        ],
+      },
+      {
+        label: "[ ]", tooltip: "Matrizes, casos e estrutura (+linha e +coluna dentro da matriz)",
+        rows: [
+          [peq("\\begin{pmatrix}#0&#?\\\\#?&#?\\end{pmatrix}", "Matriz 2×2 ( )"),
+            peq("\\begin{pmatrix}#0&#?&#?\\\\#?&#?&#?\\\\#?&#?&#?\\end{pmatrix}", "Matriz 3×3 ( )"),
+            peq("\\begin{bmatrix}#0&#?\\\\#?&#?\\end{bmatrix}", "Matriz 2×2 [ ]"),
+            peq("\\begin{vmatrix}#0&#?\\\\#?&#?\\end{vmatrix}", "Determinante 2×2"),
+            peq("\\begin{vmatrix}#0&#?&#?\\\\#?&#?&#?\\\\#?&#?&#?\\end{vmatrix}", "Determinante 3×3"),
+            peq("\\begin{pmatrix}#0\\\\#?\\\\#?\\end{pmatrix}", "Vetor coluna"),
+            peq("\\begin{cases}#0&#?\\\\#?&#?\\end{cases}", "Casos (função por partes)")],
+          [{ label: "+ linha", command: ["addRowAfter"], class: PEQ, tooltip: "Acrescentar linha na matriz" },
+            { label: "+ coluna", command: ["addColumnAfter"], class: PEQ, tooltip: "Acrescentar coluna na matriz" },
+            { label: "− linha", command: ["removeRow"], class: PEQ, tooltip: "Remover a linha do cursor" },
+            { label: "− coluna", command: ["removeColumn"], class: PEQ, tooltip: "Remover a coluna do cursor" }, SEP,
+            peq("\\underbrace{#@}_{#?}", "Chave por baixo"), peq("\\overbrace{#@}^{#?}", "Chave por cima"),
+            peq("\\overset{#?}{#@}", "Símbolo em cima"), peq("\\underset{#?}{#@}", "Símbolo embaixo"), peq("\\boxed{#@}", "Caixa")],
+          [peq("\\mathrm{#0}", "Texto redondo", { label: "<span style='font-family:serif'>rm</span>" }),
+            peq("\\text{#0}", "Palavra", { label: "abc" }),
+            peq("\\mathbf{#0}", "Negrito", { label: "<b style='font-family:serif'>B</b>" }),
+            peq("\\mathit{#0}", "Itálico", { label: "<i style='font-family:serif'>I</i>" }),
+            peq("\\mathcal{#0}", "Caligráfico", { label: "𝒞" }), peq("\\mathbb{#0}", "Conjuntos (ℝ, ℂ)", { label: "ℝ" }), SEP,
+            depois(peq("\\quad", "Espaço largo", { label: "quad" })), depois(peq("\\,", "Espaço fino", { label: "\\," })),
+            depois(peq("\\;", "Espaço médio", { label: "\\;" })), depois(peq("\\!", "Espaço negativo", { label: "\\!" }))],
+          NAVEGACAO,
+        ],
+      },
+      "alphabetic",
+    ];
+
+    /* ---------------------------------------------------------------------
+       REDONDO ISOLADO
+       ---------------------------------------------------------------------
+       O MathLive faz o que se digita herdar o estilo do caractere anterior:
+       depois de \mathrm{d}, um x digitado sairia redondo (\mathrm{dx}).
+       Duas formas fecham o estilo (d redondo, x italico):
+       - tecla d solta: \mathrm{d}{} (grupo vazio depois). Envolver em chaves,
+         {\mathrm{d}}, tambem fechava, mas o MathLive desenhava o espaco do
+         "=" depois do d ("=d H");
+       - d seguido de caixinha (integral, derivada): {\mathrm{d}}#? , porque
+         com o grupo vazio o Tab parava nele e sobrava uma caixinha.
+       limparLatexDoCampo tira as chaves e o {} da saida.
+       Nao mexe em indices/expoentes (_{\mathrm{r}}).
+       --------------------------------------------------------------------- */
+    function isolarRedondoNoLatex(latex) {
+      return latex.replace(/\\mathrm\{([^{}]*)\}(?!\{\})/g, (m, x, pos) => {
+        const antes = latex.slice(Math.max(0, pos - 2), pos);
+        if (/[_^]\{$/.test(antes)) return m;                        // _{\mathrm{r}} fica como esta
+        // seguido de caixinha (dx em integral/derivada): {\mathrm{d}}#? ;
+        // solto (tecla d, e, i): \mathrm{d}{}, que nao desloca o espaco do "="
+        return /^#[@0?]/.test(latex.slice(pos + m.length)) ? "{" + m + "}" : m + "{}";
+      });
+    }
+    function isolarRedondo(abas) {
+      const visitar = (k) => {
+        if (typeof k === "string") return k;
+        const n = { ...k };
+        if (n.latex) n.latex = isolarRedondoNoLatex(n.latex);
+        if (n.shift) n.shift = visitar(n.shift);
+        if (Array.isArray(n.variants)) n.variants = n.variants.map(visitar);
+        return n;
+      };
+      return abas.map((aba) => (typeof aba === "string" ? aba : { ...aba, rows: aba.rows.map((l) => l.map(visitar)) }));
+    }
+
+    /* ---------------------------------------------------------------------
+       SELECAO -> ARGUMENTO
+       ---------------------------------------------------------------------
+       O MathLive avisa (evento beforeinput, cancelavel) o LaTeX que uma tecla
+       vai inserir. Quando ha algo selecionado, decidimos aqui onde a selecao
+       entra, para que NENHUMA ferramenta apague o que foi selecionado:
+         1. tecla com #0 ou #@ ........ o proprio MathLive coloca a selecao ali
+         2. tecla marcada "antes" ..... insere  tecla + selecao   (sen 2x)
+         3. tecla marcada "depois" .... insere  selecao + tecla   (300 K)
+            tecla marcada "binario" ... selecao + operador + caixinha (2x = _)
+         4. qualquer outra com #? ..... a selecao vai na 1a caixinha (rede de
+                                         seguranca para teclas novas)
+         5. o resto (algarismos, letras gregas, constantes, equacoes
+            prontas) substitui a selecao, como digitar por cima
+       --------------------------------------------------------------------- */
+    const MODO_DA_TECLA = new Map();                 // latex -> "antes" | "depois"
+    (function mapearModos() {
+      const visitar = (k) => {
+        if (!k || typeof k !== "object") return;
+        if (k.arg && k.latex) {
+          MODO_DA_TECLA.set(k.latex, k.arg);
+          MODO_DA_TECLA.set(isolarRedondoNoLatex(k.latex), k.arg);   // forma que o teclado envia
+        }
+        if (k.shift) visitar(k.shift);
+        if (Array.isArray(k.variants)) k.variants.forEach(visitar);
+      };
+      ABAS_TECLADO.forEach((aba) => aba.rows && aba.rows.forEach((linha) => linha.forEach(visitar)));
+      // Operadores e relacoes (inclui as teclas padrao [+], [-], [=]):
+      // a selecao fica a esquerda e sobra uma caixinha a direita
+      const BINARIOS = ["+", "-", "=", "<", ">", "\\times", "\\cdot", "\\div", "\\approx", "\\neq", "\\le", "\\ge",
+        "\\equiv", "\\simeq", "\\sim", "\\propto", "\\ll", "\\gg", "\\rightarrow", "\\leftarrow", "\\leftrightarrow",
+        "\\rightleftharpoons", "\\Rightarrow", "\\Leftrightarrow", "\\mapsto", "\\to", "\\in", "\\notin", "\\subset",
+        "\\subseteq", "\\cup", "\\cap", "\\perp", "\\parallel", "\\land", "\\lor", "\\otimes", "\\oplus", "\\ast", "\\star", "\\circ"];
+      // Prefixos (vem antes da selecao) e sufixos (vem depois)
+      const PREFIXOS = ["\\pm", "\\mp", "\\forall", "\\exists", "\\neg", "\\therefore", "\\because", "\\angle"];
+      const SUFIXOS = ["\\uparrow", "\\downarrow", "\\cdots", "\\ldots", "\\vdots", "\\ddots", "\\,", "\\;", "\\quad", "\\qquad", "\\!"];
+      const marcar = (lista, modo) => lista.forEach((l) => { if (!MODO_DA_TECLA.has(l)) MODO_DA_TECLA.set(l, modo); });
+      marcar(BINARIOS, "binario");
+      marcar(PREFIXOS, "antes");
+      marcar(SUFIXOS, "depois");
+    })();
+
+    // Devolve o LaTeX a inserir no lugar da selecao, ou null (deixa o MathLive agir)
+    function moldeComSelecao(latex) {
+      if (/#0|#@/.test(latex)) return null;                       // regra 1
+      const modo = MODO_DA_TECLA.get(latex);
+      if (modo === "antes") return latex + "#0";                    // regra 2
+      if (modo === "depois") return "#0" + latex;                   // regra 3
+      if (modo === "binario") return "#0" + latex + "#?";           // regra 3b: 2x = _
+      if (latex.includes("#?")) return latex.replace("#?", "#0");   // regra 4
+      return null;                                                  // regra 5
+    }
+
+    let reinserindo = false;
+    function aplicarNaSelecao(evento) {
+      if (reinserindo || evento.inputType !== "insertText" || !evento.data) return;
+      const alvo = evento.target;                    // o campo onde a tecla foi usada
+      registrarRecente(evento.data);                 // ferramenta do teclado virtual
+      if (!alvo || alvo.selectionIsCollapsed) return;
+      const molde = moldeComSelecao(evento.data);
+      if (!molde) return;
+      evento.preventDefault();
+      inserirNoCampo(alvo, molde);
+    }
+
+    // Insere um LaTeX no campo sem passar de novo pela camada da selecao
+    function inserirNoCampo(alvo, latex) {
+      reinserindo = true;
+      try {
+        alvo.executeCommand(["insert", latex, { selectionMode: "placeholder", format: "latex" }]);
+      } finally {
+        reinserindo = false;
+      }
+    }
+
+    /* ---------------------------------------------------------------------
+       FERRAMENTAS RECENTES (as ultimas TAMANHO_RECENTES teclas usadas)
+       ---------------------------------------------------------------------
+       Aparecem na barra "Recentes" sob o campo (sempre a mao) e, na proxima
+       vez que o teclado virtual abrir, tambem como primeira linha de cada
+       aba. Nao registra algarismos nem letras soltas (R, F, h), que o
+       teclado fisico tambem produz.
+       --------------------------------------------------------------------- */
+    const TECLAS_POR_LATEX = new Map();              // latex (forma enviada) -> tecla
+    (function mapearTeclas() {
+      const visitar = (k) => {
+        if (!k || typeof k !== "object" || !k.latex) return;
+        if (!TECLAS_POR_LATEX.has(k.latex)) TECLAS_POR_LATEX.set(k.latex, k);
+        if (k.shift && typeof k.shift === "object") visitar(k.shift);
+        if (Array.isArray(k.variants)) k.variants.forEach((v) => typeof v === "object" && visitar(v));
+      };
+      isolarRedondo(ABAS_TECLADO).forEach((aba) => aba.rows && aba.rows.forEach((l) => l.forEach(visitar)));
+    })();
+
+    let recentesMemoria = [];
+    function lerRecentes() {
+      try {
+        const lista = JSON.parse(localStorage.getItem(CHAVE_RECENTES) || "[]");
+        return Array.isArray(lista) ? lista.filter((l) => TECLAS_POR_LATEX.has(l)) : [];
+      } catch (e) { return recentesMemoria; }
+    }
+    function gravarRecentes(lista) {
+      recentesMemoria = lista;
+      try { localStorage.setItem(CHAVE_RECENTES, JSON.stringify(lista)); } catch (e) { /* so na memoria */ }
+    }
+    function registrarRecente(latex) {
+      if (!TECLAS_POR_LATEX.has(latex) || /^[0-9a-zA-Z.,+\-=<>()]$/.test(latex)) return;
+      const lista = [latex, ...lerRecentes().filter((l) => l !== latex)].slice(0, TAMANHO_RECENTES);
+      gravarRecentes(lista);
+      desenharRecentes();
+    }
+
+    // Rotulo de uma tecla: o label (HTML nosso) ou o LaTeX desenhado pelo MathLive
+    function rotuloDaTecla(tecla) {
+      if (tecla.label) return tecla.label;
+      const latex = tecla.latex.replace(/#[@0?]/g, "\\square");
+      try {
+        if (window.MathLive && MathLive.convertLatexToMarkup) return MathLive.convertLatexToMarkup(latex);
+      } catch (e) { /* cai no texto */ }
+      return "<code>" + latex.replace(/</g, "&lt;") + "</code>";
+    }
+
+    function desenharRecentes() {
+      const lista = lerRecentes();
+      const caixa = $("recentes");
+      $("linha-recentes").hidden = lista.length === 0;
+      caixa.textContent = "";
+      lista.forEach((latex) => {
+        const tecla = TECLAS_POR_LATEX.get(latex);
+        const b = document.createElement("button");
+        b.type = "button";
+        b.innerHTML = rotuloDaTecla(tecla);
+        b.title = tecla.tooltip || latex;
+        b.setAttribute("aria-label", tecla.tooltip || latex);
+        b.addEventListener("pointerdown", (e) => e.preventDefault());   // nao tira o foco do campo
+        b.addEventListener("click", () => usarFerramenta(latex));
+        caixa.appendChild(b);
+      });
+    }
+
+    // Usa uma ferramenta (tecla) no campo em foco, com a mesma regra da selecao
+    function usarFerramenta(latex) {
+      const alvo = campoEmFoco();
+      if (!alvo) return;
+      alvo.focus();
+      const molde = (!alvo.selectionIsCollapsed && moldeComSelecao(latex)) || latex;
+      inserirNoCampo(alvo, molde);
+      registrarRecente(latex);
+    }
+
+    // Linha de recentes para o teclado virtual (primeira linha de cada aba)
+    function abasComRecentes() {
+      const abas = isolarRedondo(ABAS_TECLADO);
+      const recentes = lerRecentes().slice(0, RECENTES_NO_TECLADO).map((l) => ({ ...TECLAS_POR_LATEX.get(l) }));
+      if (!recentes.length) return abas;
+      const linha = recentes;                       // primeira linha de cada aba
+      return abas.map((aba) => (typeof aba === "string" ? aba : { ...aba, rows: [linha, ...aba.rows] }));
+    }
+
+    /* ---------------------------------------------------------------------
+       COR DA SELECAO
+       --------------------------------------------------------------------- */
+    function ligarCores() {
+      const caixa = $("cores");
+      const criar = (rotulo, css, nome, classe) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.title = rotulo;
+        b.setAttribute("aria-label", rotulo);
+        if (classe) b.className = classe; else b.style.background = css;
+        if (classe) b.textContent = rotulo;
+        b.addEventListener("pointerdown", (e) => e.preventDefault());
+        b.addEventListener("click", () => colorirSelecao(nome));
+        caixa.appendChild(b);
+      };
+      CORES.forEach((c) => criar(c.rotulo, c.css, c.nome));
+      criar("sem cor", "", "none", "sem-cor");
+    }
+
+    function colorirSelecao(nome) {
+      const alvo = campoEmFoco();
+      if (!alvo) return;
+      if (alvo.selectionIsCollapsed) {
+        mostrarStatus("Selecione um trecho da equação (arraste ou Shift+setas) e escolha a cor.", true);
+        alvo.focus();
+        return;
+      }
+      alvo.applyStyle({ color: nome }, { operation: "set" });
+      alvo.focus();
+    }
+
+    // Aplica as abas e liga o botao da pagina. O botao so aparece com o
+    // MathLive carregado; no celular o teclado tambem abre sozinho ao tocar.
+    function configurarTeclado() {
+      const teclado = window.mathVirtualKeyboard;
+      if (!teclado) return;
+      teclado.layouts = abasComRecentes();
+      teclado.editToolbar = "default";              // desfazer, refazer, recortar, copiar, colar
+
+      const botao = $("btn-teclado");
+      botao.hidden = false;
+      const atualizar = () => {
+        const visivel = !!teclado.visible;
+        botao.setAttribute("aria-pressed", String(visivel));
+        // Reserva o espaco do teclado no fim da pagina, para nada ficar coberto
+        const altura = visivel && teclado.boundingRect ? Math.ceil(teclado.boundingRect.height) : 0;
+        document.body.style.setProperty("--altura-teclado", altura + "px");
+        document.body.classList.toggle("com-teclado", visivel);
+      };
+      teclado.addEventListener("geometrychange", atualizar);
+      teclado.addEventListener("virtual-keyboard-toggle", () => {
+        atualizar();
+        // Com o teclado fechado, refaz as abas com a linha de recentes
+        if (!teclado.visible) teclado.layouts = abasComRecentes();
+      });
+      botao.addEventListener("click", () => {
+        if (teclado.visible) {
+          teclado.hide();
+        } else {
+          (campoEmFoco() || campo).focus();
+          teclado.show();
+        }
+        setTimeout(atualizar, 350);
+      });
+    }
+
+    /* =====================================================================
+       CONVENCOES (funcoes puras sobre a string LaTeX)
+       ---------------------------------------------------------------------
+       Versao provisoria: agem sobre o TEXTO com expressoes regulares e uma
+       busca de parenteses balanceados. A versao definitiva agira sobre a
+       arvore sintatica (por exemplo, a do MathLive/Compute Engine), o que
+       evita casos como numeros dentro de \text{...} ou de nomes de rotulo.
+       ===================================================================== */
+
+    // 3.5 -> 3{,}5  (so ponto entre dois algarismos)
+    function aplicarVirgulaDecimal(latex) {
+      return latex.replace(/(\d)\.(\d)/g, "$1{,}$2");
+    }
+
+    // Acha o fechamento correspondente a partir de 'inicio' (que aponta para
+    // o caractere de abertura). Devolve o indice do fechamento ou -1.
+    function acharFechamento(texto, inicio, abre, fecha) {
+      let nivel = 0;
+      for (let i = inicio; i < texto.length; i++) {
+        if (texto[i] === "\\") { i++; continue; }  // pula \{ \} \( \)
+        if (texto[i] === abre) nivel++;
+        else if (texto[i] === fecha) { nivel--; if (nivel === 0) return i; }
+      }
+      return -1;
+    }
+
+    // Acha o \right) que fecha um \left( em 'inicio' (contando \left/\right aninhados)
+    function acharRight(texto, inicio) {
+      let nivel = 0;
+      const re = /\\(left|right)(?![a-zA-Z])/g;
+      re.lastIndex = inicio;
+      let m;
+      while ((m = re.exec(texto))) {
+        if (m[1] === "left") nivel++;
+        else { nivel--; if (nivel === 0) return m.index; }
+      }
+      return -1;
+    }
+
+    // \exp(x), \exp\left(x\right), \exp{x} -> e^{x}
+    function aplicarExponencial(latex) {
+      let saida = "";
+      let i = 0;
+      const re = /\\exp(?![a-zA-Z])/g;
+      let m;
+      while ((m = re.exec(latex))) {
+        let j = m.index + m[0].length;
+        while (latex[j] === " ") j++;
+        let argumento = null, fim = -1;
+        if (latex.startsWith("\\left(", j)) {
+          const r = acharRight(latex, j);
+          if (r > 0 && latex.startsWith("\\right)", r)) {
+            argumento = latex.slice(j + 6, r);
+            fim = r + 7;
+          }
+        } else if (latex[j] === "(") {
+          const f = acharFechamento(latex, j, "(", ")");
+          if (f > 0) { argumento = latex.slice(j + 1, f); fim = f + 1; }
+        } else if (latex[j] === "{") {
+          const f = acharFechamento(latex, j, "{", "}");
+          if (f > 0) { argumento = latex.slice(j + 1, f); fim = f + 1; }
+        }
+        if (argumento === null) continue;          // \exp sem argumento claro: fica como esta
+        saida += latex.slice(i, m.index) + "e^{" + argumento.trim() + "}";
+        i = fim;
+        re.lastIndex = fim;
+      }
+      return saida + latex.slice(i);
+    }
+
+    // \sin -> \operatorname{sen}, \tan -> \operatorname{tg} (nao mexe em \sinh, \tanh)
+    function aplicarTrigonometria(latex) {
+      return latex
+        .replace(/\\sin(?![a-zA-Z])/g, "\\operatorname{sen}")
+        .replace(/\\tan(?![a-zA-Z])/g, "\\operatorname{tg}");
+    }
+
+    // ^\circ e ^{\circ} -> ^\ominus  (desligado por padrao)
+    function aplicarEstadoPadrao(latex) {
+      return latex
+        .replace(/\^\{\s*\\circ\s*\}/g, "^{\\ominus}")
+        .replace(/\^\s*\\circ(?![a-zA-Z])/g, "^\\ominus");
+    }
+
+    // Aplica as convencoes marcadas, na ordem
+    function aplicarConvencoes(latex, opcoes) {
+      let s = latex;
+      if (opcoes.exp) s = aplicarExponencial(s);
+      if (opcoes.trig) s = aplicarTrigonometria(s);
+      if (opcoes.padrao) s = aplicarEstadoPadrao(s);
+      if (opcoes.virgula) s = aplicarVirgulaDecimal(s);
+      return s;
+    }
+
+    /* =====================================================================
+       ELEMENTOS
+       ===================================================================== */
+    const $ = (id) => document.getElementById(id);
+    const areaLatex = $("latex");
+    const elStatus = $("status");
+    const listaHistorico = $("historico");
+    const avisoHistoricoVazio = $("historico-vazio");
+    // Nao ha mais um campo principal: o "campo" e sempre o <math-field> do
+    // passo em foco (ultimo que recebeu o foco). O textarea de LaTeX e os
+    // botoes "passo" agem sobre ele.
+    let campo = null;
+    let campoPronto = false;                         // MathLive carregado
+    let campoAtivo = null;
+    document.addEventListener("focusin", (e) => {
+      if (e.target && e.target.tagName === "MATH-FIELD") ativarCampo(e.target);
+    });
+    function campoEmFoco() { return (campoAtivo && campoAtivo.isConnected) ? campoAtivo : campo; }
+
+    // Marca o passo como ativo e espelha o LaTeX dele no textarea
+    function ativarCampo(mf) {
+      campoAtivo = mf;
+      campo = mf;
+      passos.forEach((p) => p.li.classList.toggle("ativo", p.mf === mf));
+      const i = passos.findIndex((p) => p.mf === mf);
+      $("n-passo").textContent = i >= 0 ? String(i + 1) : "";
+      sincronizando = true;
+      areaLatex.value = limparLatexDoCampo(mf.getValue("latex"));
+      sincronizando = false;
+    }
+
+    // Todo <math-field> da pagina nasce aqui
+    function criarCampo() {
+      const mf = new MathfieldElement();
+      mf.setAttribute("math-virtual-keyboard-policy", "auto");
+      mf.smartFence = true;
+      mf.addEventListener("beforeinput", aplicarNaSelecao);   // selecao vira argumento + recentes
+      mf.addEventListener("keydown", teclaFisica, true);
+      return mf;
+    }
+
+    // Teclas fisicas que o MathLive nao trata como queremos:
+    // - "/" vindo de uma tecla que nao e a Slash do teclado americano (no
+    //   ABNT2 e no teclado numerico, codigo IntlRo/NumpadDivide) vira
+    //   "\slash" no MathLive; aqui vira fracao, como a Slash.
+    // - Enter abre um passo novo abaixo (Shift+Enter deixa com o MathLive).
+    function teclaFisica(e) {
+      const mf = e.currentTarget;
+      if (e.key === "/" && e.code !== "Slash" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        inserirNoCampo(mf, "\\frac{#@}{#?}");
+        return;
+      }
+      if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        const i = passos.findIndex((p) => p.mf === mf);
+        adicionarPasso("", "", i + 1, true);
+      }
+    }
+
+    /* =====================================================================
+       STATUS
+       ===================================================================== */
+    // A mesma mensagem aparece sob os botoes da equacao e sob os da demonstracao
+    let temporizadorStatus = null;
+    function mostrarStatus(mensagem, ehErro = false) {
+      clearTimeout(temporizadorStatus);
+      const alvos = [elStatus, $("status-demo")];
+      alvos.forEach((el) => {
+        el.textContent = mensagem;
+        el.classList.toggle("erro", ehErro);
+        el.classList.remove("sumindo");
+      });
+      temporizadorStatus = setTimeout(() => {
+        alvos.forEach((el) => el.classList.add("sumindo"));
+        temporizadorStatus = setTimeout(() => alvos.forEach((el) => { el.textContent = ""; }), 450);
+      }, ehErro ? TEMPO_ERRO_MS : TEMPO_STATUS_MS);
+    }
+
+    /* =====================================================================
+       LaTeX ATUAL E OPCOES
+       ===================================================================== */
+    function latexAtual() {
+      // O textarea e sempre a fonte da verdade (funciona mesmo sem MathLive)
+      return areaLatex.value.trim();
+    }
+
+    function opcoesAtuais() {
+      return {
+        virgula: $("op-virgula").checked,
+        exp: $("op-exp").checked,
+        trig: $("op-trig").checked,
+        padrao: $("op-padrao").checked,
+      };
+    }
+
+    // O MathLive escreve \operatorname{\mathrm{sen}}; volta para \operatorname{sen}
+    function limparLatexDoCampo(latex) {
+      return latex
+        .replace(/\\operatorname\{\\mathrm\{([^{}]*)\}\}/g, "\\operatorname{$1}")
+        .replace(/(^|[^_^])\{(\\mathrm\{[^{}]*\})\}/g, "$1$2")    // {\mathrm{d}} -> \mathrm{d} (mantem _{\mathrm{r}})
+        .replace(/(\\mathrm\{[^{}]*\})\{\}/g, "$1");               // \mathrm{d}{} -> \mathrm{d}
+    }
+
+    // Caixinhas vazias do MathLive (\placeholder{}) nao existem no LaTeX
+    // padrao: na saida viram grupo vazio {}.
+    function removerCaixinhas(latex) {
+      return latex.replace(/\\placeholder(\[[^\]]*\])?\{[^{}]*\}/g, "{}");
+    }
+
+    function latexDeSaida() {
+      return aplicarConvencoes(removerCaixinhas(latexAtual()), opcoesAtuais());
+    }
+
+    // Devolve o LaTeX de saida ou avisa que o campo esta vazio
+    function exigirEquacao() {
+      const original = latexAtual();
+      if (!original) {
+        mostrarStatus("O passo em foco está vazio. Clique num passo com equação ou escreva uma.", true);
+        return null;
+      }
+      return { original, saida: latexDeSaida() };
+    }
+
+    /* =====================================================================
+       SINCRONIA CAMPO <-> TEXTAREA (sem laco)
+       ---------------------------------------------------------------------
+       Cada lado so escreve no outro quando o evento veio do usuario. A
+       flag 'sincronizando' impede que a escrita programatica volte.
+       ===================================================================== */
+    let sincronizando = false;
+
+    // Chamado pelo input de cada passo; so o passo em foco escreve no textarea
+    function campoParaTexto(mf) {
+      if (sincronizando || mf !== campoAtivo) return;
+      sincronizando = true;
+      areaLatex.value = limparLatexDoCampo(mf.getValue("latex"));
+      sincronizando = false;
+    }
+
+    function textoParaCampo() {
+      if (sincronizando || !campoPronto) return;
+      const alvo = campoEmFoco();
+      if (!alvo) return;
+      sincronizando = true;
+      alvo.setValue(areaLatex.value, { silenceNotifications: true });
+      const p = passos.find((x) => x.mf === alvo);
+      if (p) { p.latex = limparLatexDoCampo(alvo.getValue("latex")); demonstracaoMudou(); }
+      sincronizando = false;
+    }
+
+    // Reabrir uma equacao do historico: vira um passo novo, em foco
+    function definirLatex(latex) {
+      if (!campoPronto) { areaLatex.value = latex; return; }
+      adicionarPasso(latex, "", passos.length, true);
+    }
+
+    /* =====================================================================
+       AREA DE TRANSFERENCIA
+       ===================================================================== */
+    async function copiarTexto(texto) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(texto);
+          return true;
+        }
+      } catch (e) { /* cai no metodo antigo */ }
+      // Reserva: textarea temporario + execCommand (http simples, navegadores antigos)
+      const temp = document.createElement("textarea");
+      temp.value = texto;
+      temp.setAttribute("readonly", "");
+      temp.style.position = "fixed";
+      temp.style.opacity = "0";
+      document.body.appendChild(temp);
+      temp.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      temp.remove();
+      return ok;
+    }
+
+    async function copiar(texto, mensagemOk, acao, original, alvo) {
+      const ok = await copiarTexto(texto);
+      if (ok) {
+        mostrarStatus(mensagemOk);
+        if (alvo) registrar(alvo, acao); else registrarHistorico(original, acao);
+      } else {
+        mostrarStatus("O navegador bloqueou a cópia. Selecione o texto no campo LaTeX e use Ctrl+C.", true);
+      }
+    }
+
+    /* =====================================================================
+       MATHJAX (carregado so na primeira exportacao)
+       ===================================================================== */
+    let promessaMathJax = null;
+
+    function carregarMathJax() {
+      if (promessaMathJax) return promessaMathJax;
+      promessaMathJax = new Promise((resolver, rejeitar) => {
+        window.MathJax = {
+          // O tex-svg ja traz o ams; boldsymbol, mathtools etc. entram sozinhos
+          // (autoload). color e carregado de inicio, por causa do \textcolor.
+          loader: { load: ["[tex]/color"] },
+          tex: { packages: { "[+]": ["color"] } },
+          svg: { fontCache: "none" },               // SVG autonomo, sem <use> globais
+          startup: {
+            typeset: false,
+            ready: () => {
+              MathJax.startup.defaultReady();
+              MathJax.startup.promise.then(() => resolver(window.MathJax), rejeitar);
+            },
+          },
+        };
+        const s = document.createElement("script");
+        s.src = URL_MATHJAX;
+        s.async = true;
+        s.onerror = () => {
+          promessaMathJax = null;                    // permite tentar de novo
+          rejeitar(new Error("MathJax"));
+        };
+        document.head.appendChild(s);
+      });
+      return promessaMathJax;
+    }
+
+    function erroMathJax() {
+      mostrarStatus("Não foi possível carregar o MathJax, que gera o MathML, o SVG e o PNG. Verifique a conexão " +
+        "(ou se o site bloqueia cdn.jsdelivr.net) e tente de novo.", true);
+    }
+
+    // Converte o LaTeX em <svg> autonomo (string), pronto para arquivo
+    async function latexParaSvg(latex) {
+      const MJ = await carregarMathJax();
+      const no = await MJ.tex2svgPromise(latex, { display: true });
+      const svg = no.querySelector("svg");
+      const erro = no.querySelector("[data-mjx-error]");
+      if (erro || !svg) {
+        const msg = erro ? erro.getAttribute("data-mjx-error") : "resultado vazio";
+        throw new Error("TeX: " + msg);
+      }
+      // ex -> px, para o Inkscape e o navegador medirem igual
+      let largura = parseFloat(svg.getAttribute("width")) * PX_POR_EX;
+      let altura = parseFloat(svg.getAttribute("height")) * PX_POR_EX;
+      // Margem: alarga o viewBox na mesma proporcao, para a equacao nao
+      // encostar na borda do arquivo
+      const vb = (svg.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+      if (vb.length === 4 && largura > 0) {
+        const m = MARGEM_PX * (vb[2] / largura);   // margem em unidades do viewBox
+        svg.setAttribute("viewBox", [vb[0] - m, vb[1] - m, vb[2] + 2 * m, vb[3] + 2 * m].map((v) => v.toFixed(1)).join(" "));
+        largura += 2 * MARGEM_PX;
+        altura += 2 * MARGEM_PX;
+      }
+      svg.setAttribute("width", largura.toFixed(2) + "px");
+      svg.setAttribute("height", altura.toFixed(2) + "px");
+      svg.removeAttribute("style");
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      svg.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+      // O LaTeX vai junto, em <desc>, para saber depois de onde a figura veio
+      const desc = document.createElementNS("http://www.w3.org/2000/svg", "desc");
+      desc.textContent = latex;
+      svg.insertBefore(desc, svg.firstChild);
+      let texto = new XMLSerializer().serializeToString(svg);
+      texto = texto
+        .replace(/currentColor/g, COR_EXPORTACAO)
+        .replace(/ style=""/g, "")
+        .replace(/ aria-hidden="true"/g, "");
+      return {
+        texto: '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + texto,
+        largura,
+        altura,
+      };
+    }
+
+    // MathML completo (<math xmlns=... display="block">)
+    async function latexParaMathML(latex) {
+      try {
+        const MJ = await carregarMathJax();
+        return await MJ.tex2mmlPromise(latex, { display: true });
+      } catch (e) {
+        // Reserva: MathML do MathLive, embrulhado num <math> completo
+        if (window.MathLive && MathLive.convertLatexToMathMl) {
+          const corpo = MathLive.convertLatexToMathMl(latex);
+          return '<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">' + corpo + "</math>";
+        }
+        throw e;
+      }
+    }
+
+    function baixar(blob, nome) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    // Desliga o botao enquanto a exportacao roda (o MathJax pode demorar na 1a vez)
+    async function ocupado(botao, tarefa) {
+      botao.disabled = true;
+      try { await tarefa(); } finally { botao.disabled = false; }
+    }
+
+    function tratarErroExportacao(e) {
+      if (e && String(e.message).startsWith("TeX:")) {
+        mostrarStatus("O MathJax não entendeu o LaTeX (" + e.message.slice(5) +
+          "). Corrija no campo LaTeX e tente de novo.", true);
+      } else {
+        erroMathJax();
+      }
+    }
+
+    /* =====================================================================
+       EXPORTACAO (equacao unica e demonstracao usam o mesmo caminho)
+       ---------------------------------------------------------------------
+       alvo = { texto: LaTeX para a area de transferencia (latex/equation/
+                       align), render: LaTeX para o MathJax (MathML/SVG/PNG),
+                original: o que vai para o historico, rotulo: prefixo da
+                acao no historico, nome: nome do arquivo, passos: lista de
+                passos (so na demonstracao) }
+       ===================================================================== */
+
+    // Gera o PNG (fundo transparente, ESCALA_PNG x) a partir do SVG do MathJax
+    async function latexParaPng(latex) {
+      const svg = await latexParaSvg(latex);
+      const imagem = new Image();
+      const url = URL.createObjectURL(new Blob([svg.texto], { type: "image/svg+xml" }));
+      try {
+        await new Promise((ok, falha) => {
+          imagem.onload = ok;
+          imagem.onerror = () => falha(new Error("imagem"));
+          imagem.src = url;
+        });
+        const tela = document.createElement("canvas");
+        tela.width = Math.ceil(svg.largura * ESCALA_PNG);
+        tela.height = Math.ceil(svg.altura * ESCALA_PNG);
+        const ctx = tela.getContext("2d");           // fundo transparente: nao pinta nada antes
+        ctx.drawImage(imagem, 0, 0, tela.width, tela.height);
+        const blob = await new Promise((ok) => tela.toBlob(ok, "image/png"));
+        if (!blob) throw new Error("png");
+        return { blob, largura: tela.width, altura: tela.height };
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function tratarErroImagem(e) {
+      if (e && (e.message === "imagem" || e.message === "png")) {
+        mostrarStatus("O navegador não conseguiu desenhar o PNG. Use o SVG e converta no Inkscape.", true);
+      } else {
+        tratarErroExportacao(e);
+      }
+    }
+
+    // Copiar imagem exige https (ou localhost) e a API ClipboardItem
+    function podeCopiarImagem() {
+      return !!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write && window.isSecureContext);
+    }
+    function suportaTipo(tipo) {
+      try { return !ClipboardItem.supports || ClipboardItem.supports(tipo); } catch (e) { return false; }
+    }
+
+    function registrar(alvo, acao) {
+      registrarHistorico(alvo.original, (alvo.rotulo ? alvo.rotulo + " · " : "") + acao, alvo.passos);
+    }
+
+    // formato: latex | equation | align | mathml | svg | png;  modo: copiar | baixar
+    function exportar(botao, formato, modo, alvo) {
+      if (!alvo) return;
+      const nome = alvo.nome || NOME_ARQUIVO;
+
+      if (formato === "latex" || formato === "equation" || formato === "align") {
+        const rotulos = { latex: "LaTeX", equation: "equation", align: "align" };
+        copiar(alvo.texto, rotulos[formato] + " copiado.", rotulos[formato] + " copiado", alvo.original, alvo)
+        return;
+      }
+
+      if (formato === "mathml") {
+        ocupado(botao, async () => {
+          try {
+            const mml = await latexParaMathML(alvo.render);
+            await copiar(mml, "MathML copiado.", "MathML copiado", alvo.original, alvo);
+          } catch (e) { tratarErroExportacao(e); }
+        });
+        return;
+      }
+
+      if (modo === "baixar") {
+        ocupado(botao, async () => {
+          try {
+            if (formato === "svg") {
+              const svg = await latexParaSvg(alvo.render);
+              baixar(new Blob([svg.texto], { type: "image/svg+xml" }), nome + ".svg");
+              mostrarStatus("SVG baixado.");
+              registrar(alvo, "SVG baixado");
+            } else {
+              const png = await latexParaPng(alvo.render);
+              baixar(png.blob, nome + ".png");
+              mostrarStatus("PNG baixado (" + png.largura + " × " + png.altura + " px).");
+              registrar(alvo, "PNG baixado");
+            }
+          } catch (e) { tratarErroImagem(e); }
+        });
+        return;
+      }
+
+      // Copiar imagem. IMPORTANTE: navigator.clipboard.write precisa ser
+      // chamado ainda dentro do clique (antes de qualquer await), senao o
+      // Safari recusa. Por isso o ClipboardItem recebe PROMESSAS que o
+      // MathJax resolve depois.
+      if (formato === "png") {
+        if (!podeCopiarImagem() || !suportaTipo("image/png")) {
+          mostrarStatus("Este navegador não copia imagens para a área de transferência (ou a página não está em https). Use Baixar PNG.", true);
+          return;
+        }
+        ocupado(botao, async () => {
+          let dimensoes = "";
+          const promessa = latexParaPng(alvo.render).then((png) => {
+            dimensoes = png.largura + " × " + png.altura + " px";
+            return png.blob;
+          });
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": promessa })]);
+            mostrarStatus("PNG copiado (" + dimensoes + "). Cole no Word, PowerPoint, Inkscape ou no chat.");
+            registrar(alvo, "PNG copiado");
+          } catch (e) {
+            try { await promessa; } catch (erroGeracao) { tratarErroImagem(erroGeracao); return; }
+            mostrarStatus("O navegador não deixou copiar a imagem. Use Baixar PNG.", true);
+          }
+        });
+        return;
+      }
+
+      // SVG vai como imagem (image/svg+xml, Chrome/Edge recentes) e tambem como
+      // texto: o Inkscape cola o codigo SVG como desenho editavel.
+      ocupado(botao, async () => {
+        const promessa = latexParaSvg(alvo.render);
+        const comoTexto = () => promessa.then((svg) => new Blob([svg.texto], { type: "text/plain" }));
+        try {
+          if (podeCopiarImagem()) {
+            const itens = { "text/plain": comoTexto() };
+            if (suportaTipo("image/svg+xml") && ClipboardItem.supports) {
+              itens["image/svg+xml"] = promessa.then((svg) => new Blob([svg.texto], { type: "image/svg+xml" }));
+            }
+            await navigator.clipboard.write([new ClipboardItem(itens)]);
+          } else {
+            const svg = await promessa;
+            if (!(await copiarTexto(svg.texto))) throw new Error("copia");
+          }
+          mostrarStatus("SVG copiado. No Inkscape, Ctrl+V cola como desenho editável.");
+          registrar(alvo, "SVG copiado");
+        } catch (e) {
+          try { await promessa; } catch (erroGeracao) { tratarErroExportacao(erroGeracao); return; }
+          mostrarStatus("O navegador não deixou copiar o SVG. Use Baixar SVG.", true);
+        }
+      });
+    }
+
+    // Alvo da equacao unica (campo principal)
+    function alvoEquacao(formato) {
+      const eq = exigirEquacao();
+      if (!eq) return null;
+      const texto = formato === "equation" ? "\\begin{equation}\n  " + eq.saida + "\n\\end{equation}" : eq.saida;
+      return { texto, render: coresParaRender(eq.saida), original: eq.original, rotulo: "", nome: NOME_ARQUIVO };
+    }
+
+    // No LaTeX ficam os nomes do xcolor (red, blue...); no SVG/PNG entram os
+    // tons da paleta da pagina, menos berrantes que o "red" puro do navegador.
+    function coresParaRender(latex) {
+      return latex.replace(/\\textcolor\{([a-z]+)\}/g, (m, nome) => {
+        const cor = CORES.find((c) => c.nome === nome);
+        return cor ? "\\textcolor{" + cor.css + "}" : m;
+      });
+    }
+
+    /* =====================================================================
+       DEMONSTRACAO (lista de passos: equacao + comentario)
+       ---------------------------------------------------------------------
+       passos = [{ latex, comentario, li, mf, input }]. Cada passo tem o seu
+       <math-field>; o modelo (latex/comentario) e atualizado a cada edicao
+       e guardado no localStorage (rascunho), com try/catch.
+       ===================================================================== */
+    let passos = [];
+    let temporizadorDemo = null;
+
+    function passosSimples() {
+      return passos.map((p) => ({ latex: p.latex, comentario: p.comentario }));
+    }
+
+    function salvarDemonstracao() {
+      try { localStorage.setItem(CHAVE_DEMONSTRACAO, JSON.stringify(passosSimples())); } catch (e) { /* sem rascunho */ }
+    }
+
+    // Chamado a cada mudanca: renumera, salva e atualiza o LaTeX exibido
+    function demonstracaoMudou() {
+      renumerarPassos();
+      clearTimeout(temporizadorDemo);
+      temporizadorDemo = setTimeout(() => {
+        salvarDemonstracao();
+        $("latex-demo").value = latexDaDemonstracao();
+      }, 250);
+    }
+
+    function renumerarPassos() {
+      passos.forEach((p, i) => {
+        p.li.querySelector(".passo-n").textContent = String(i + 1);
+        p.li.querySelector(".subir").disabled = i === 0;
+        p.li.querySelector(".descer").disabled = i === passos.length - 1;
+        p.mf.setAttribute("aria-label", "Equação do passo " + (i + 1));
+        p.input.setAttribute("aria-label", "Comentário do passo " + (i + 1));
+      });
+    }
+
+    function botaoPasso(classe, simbolo, rotulo, acao) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = classe;
+      b.textContent = simbolo;
+      b.title = rotulo;
+      b.setAttribute("aria-label", rotulo);
+      b.addEventListener("click", acao);
+      return b;
+    }
+
+    // Cria o passo e o coloca na posicao 'indice' (fim, se omitido)
+    function adicionarPasso(latex = "", comentario = "", indice = passos.length, focar = false) {
+      if (!campoPronto) { mostrarStatus("O campo visual ainda não carregou.", true); return null; }
+      const li = document.createElement("li");
+      li.className = "passo";
+      const n = document.createElement("span");
+      n.className = "passo-n";
+      const caixaEq = document.createElement("div");
+      caixaEq.className = "passo-eq";
+      const mf = criarCampo();
+      mf.value = latex;
+      caixaEq.appendChild(mf);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "passo-coment";
+      input.placeholder = "comentário / justificativa (opcional)";
+      input.value = comentario;
+      const botoes = document.createElement("div");
+      botoes.className = "passo-botoes";
+
+      const passo = { latex, comentario, li, mf, input };
+      const indiceDe = () => passos.indexOf(passo);
+
+      botoes.append(
+        botaoPasso("subir", "↑", "Mover para cima", () => moverPasso(indiceDe(), -1)),
+        botaoPasso("descer", "↓", "Mover para baixo", () => moverPasso(indiceDe(), +1)),
+        botaoPasso("duplicar", "⧉", "Copiar este passo para a linha de baixo", () => {
+          const i = indiceDe();
+          adicionarPasso(passo.latex, "", i + 1, true);
+        }),
+        botaoPasso("apagar", "✕", "Remover este passo", () => removerPasso(indiceDe())),
+      );
+      const rodape = document.createElement("div");
+      rodape.className = "passo-rodape";
+      rodape.append(input, botoes);
+      li.append(n, caixaEq, rodape);
+
+      mf.addEventListener("input", () => {
+        passo.latex = limparLatexDoCampo(mf.getValue("latex"));
+        campoParaTexto(mf);
+        demonstracaoMudou();
+      });
+      input.addEventListener("input", () => { passo.comentario = input.value; demonstracaoMudou(); });
+
+      const lista = $("passos");
+      indice = Math.max(0, Math.min(indice, passos.length));
+      if (indice >= passos.length) lista.appendChild(li); else lista.insertBefore(li, passos[indice].li);
+      passos.splice(indice, 0, passo);
+      demonstracaoMudou();
+      if (focar) { mf.focus(); mf.executeCommand("moveToMathfieldEnd"); }
+      if (!campoAtivo) ativarCampo(mf);
+      return passo;
+    }
+
+    function removerPasso(i) {
+      if (i < 0) return;
+      const [p] = passos.splice(i, 1);
+      p.li.remove();
+      if (!passos.length) adicionarPasso("", "", 0, false);
+      if (p.mf === campoAtivo) {
+        const vizinho = passos[Math.min(i, passos.length - 1)];
+        vizinho.mf.focus();
+        ativarCampo(vizinho.mf);
+      }
+      demonstracaoMudou();
+      mostrarStatus("Passo removido.");
+    }
+
+    function moverPasso(i, delta) {
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= passos.length) return;
+      const [p] = passos.splice(i, 1);
+      passos.splice(j, 0, p);
+      const lista = $("passos");
+      lista.removeChild(p.li);
+      if (j >= passos.length - 1) lista.appendChild(p.li); else lista.insertBefore(p.li, passos[j + 1].li);
+      demonstracaoMudou();
+    }
+
+    function limparDemonstracao(silencioso = false) {
+      passos.forEach((p) => p.li.remove());
+      passos = [];
+      campoAtivo = null;
+      campo = null;
+      demonstracaoMudou();
+      if (!silencioso) {
+        adicionarPasso("", "", 0, true);           // a pagina nunca fica sem um passo
+        mostrarStatus("Demonstração apagada.");
+      }
+    }
+
+    function carregarPassos(lista) {
+      limparDemonstracao(true);
+      (lista || []).forEach((p) => adicionarPasso(p.latex || "", p.comentario || ""));
+      if (!passos.length) adicionarPasso("", "", 0, false);
+      ativarCampo(passos[0].mf);
+    }
+
+    function restaurarDemonstracao() {
+      let lista = [];
+      try { lista = JSON.parse(localStorage.getItem(CHAVE_DEMONSTRACAO) || "[]"); } catch (e) { lista = []; }
+      carregarPassos(Array.isArray(lista) ? lista : []);
+      demonstracaoMudou();
+    }
+
+    /* ---- LaTeX da demonstracao ------------------------------------------ */
+
+    // Insere "&" antes do primeiro sinal de relacao fora de chaves e de
+    // \left...\right, para o align alinhar as linhas nesse sinal.
+    const RELACOES = ["=", "<", ">", "\\le", "\\ge", "\\leq", "\\geq", "\\neq", "\\ne", "\\approx", "\\equiv",
+      "\\sim", "\\simeq", "\\propto", "\\to", "\\rightarrow", "\\Rightarrow", "\\leftrightarrow",
+      "\\Leftrightarrow", "\\rightleftharpoons", "\\ll", "\\gg", "\\in", "\\subset", "\\subseteq"];
+    function alinharNaRelacao(latex) {
+      if (latex.includes("&")) return latex;          // ja alinhado a mao
+      let nivel = 0, left = 0;
+      for (let i = 0; i < latex.length; i++) {
+        const c = latex[i];
+        if (c === "{") { nivel++; continue; }
+        if (c === "}") { nivel--; continue; }
+        if (c === "\\") {
+          const m = /^\\[a-zA-Z]+/.exec(latex.slice(i));
+          const cmd = m ? m[0] : latex.slice(i, i + 2);
+          if (cmd === "\\left") left++;
+          else if (cmd === "\\right") left--;
+          else if (nivel === 0 && left === 0 && RELACOES.includes(cmd)) return latex.slice(0, i) + "&" + latex.slice(i);
+          i += cmd.length - 1;
+          continue;
+        }
+        if (nivel === 0 && left === 0 && (c === "=" || c === "<" || c === ">")) return latex.slice(0, i) + "&" + latex.slice(i);
+      }
+      return latex;
+    }
+
+    function escaparTexto(t) {
+      return t.replace(/\\/g, "\\textbackslash{}").replace(/([&%#_])/g, "\\$1");
+    }
+
+    // Linhas prontas: [{ eq, comentario }] ja com convencoes e alinhamento
+    function linhasDaDemonstracao() {
+      const op = opcoesAtuais();
+      const alinhar = $("op-alinhar").checked;
+      return passos
+        .filter((p) => p.latex.trim() || p.comentario.trim())
+        .map((p) => {
+          let eq = aplicarConvencoes(removerCaixinhas(p.latex.trim()), op);
+          if (alinhar) eq = alinharNaRelacao(eq);
+          return { eq, comentario: p.comentario.trim() };
+        });
+    }
+
+    // Para copiar: align com justificativa a direita e \nonumber (preferencia)
+    function latexDaDemonstracao() {
+      const linhas = linhasDaDemonstracao();
+      if (!linhas.length) return "";
+      const numerarUltima = $("op-numerar").checked;
+      const corpo = linhas.map((l, i) => {
+        const ultima = i === linhas.length - 1;
+        let s = "  " + l.eq;
+        if (l.comentario) s += " && \\text{" + escaparTexto(l.comentario) + "}";
+        if (!ultima || !numerarUltima) s += " \\nonumber";
+        if (!ultima) s += " \\\\";
+        return s;
+      });
+      return "\\begin{align}\n" + corpo.join("\n") + "\n\\end{align}";
+    }
+
+    // Para o MathJax (MathML/SVG/PNG): aligned, comentarios em cinza
+    function renderDaDemonstracao() {
+      const linhas = linhasDaDemonstracao();
+      return "\\begin{aligned}\n" + linhas.map((l) => {
+        let s = l.eq;
+        if (l.comentario) s += " &&\\quad\\textcolor{" + COR_COMENTARIO + "}{\\text{" + escaparTexto(l.comentario) + "}}";
+        return s;
+      }).join(" \\\\\n") + "\n\\end{aligned}";
+    }
+
+    function alvoDemonstracao() {
+      if (!linhasDaDemonstracao().length) {
+        mostrarStatus("A demonstração está vazia. Adicione passos primeiro.", true);
+        return null;
+      }
+      const texto = latexDaDemonstracao();
+      return {
+        texto, render: coresParaRender(renderDaDemonstracao()), original: texto,
+        rotulo: "demonstração (" + passos.length + " passos)", nome: NOME_ARQUIVO_DEMO, passos: passosSimples(),
+      };
+    }
+
+    /* ---- Importar de LaTeX ---------------------------------------------- */
+    function importarAlign(texto) {
+      let t = texto.replace(/\\begin\{(align|aligned|gather|eqnarray)\*?\}|\\end\{(align|aligned|gather|eqnarray)\*?\}/g, "");
+      t = t.replace(/\\label\{[^}]*\}|\\nonumber|\\notag/g, "");
+      const linhas = t.split(/\\\\/).map((l) => l.trim()).filter(Boolean);
+      let n = 0;
+      linhas.forEach((l) => {
+        let comentario = "";
+        const m = /&&\s*\\text\{([^}]*)\}\s*$/.exec(l);
+        if (m) { comentario = m[1]; l = l.slice(0, m.index); }
+        const eq = l.replace(/&/g, "").trim();
+        if (eq || comentario) { adicionarPasso(eq, comentario); n++; }
+      });
+      return n;
+    }
+
+    function ligarDemonstracao() {
+      // Novo passo entra logo abaixo do passo em foco
+      $("btn-passo-vazio").addEventListener("click", () => {
+        const i = passos.findIndex((p) => p.mf === campoAtivo);
+        adicionarPasso("", "", i >= 0 ? i + 1 : passos.length, true);
+      });
+      $("btn-demo-limpar").addEventListener("click", () => {
+        if (passos.length) registrarHistorico(latexDaDemonstracao(), "demonstração (" + passos.length + " passos) · apagada", passosSimples());
+        limparDemonstracao();
+      });
+      const importar = $("importar");
+      $("btn-passo-importar").addEventListener("click", (e) => {
+        importar.hidden = !importar.hidden;
+        e.currentTarget.setAttribute("aria-expanded", String(!importar.hidden));
+        if (!importar.hidden) $("importar-texto").focus();
+      });
+      $("btn-importar-fechar").addEventListener("click", () => { importar.hidden = true; $("btn-passo-importar").setAttribute("aria-expanded", "false"); });
+      $("btn-importar-ok").addEventListener("click", () => {
+        const n = importarAlign($("importar-texto").value);
+        if (n) { mostrarStatus(n + (n === 1 ? " passo acrescentado." : " passos acrescentados.")); $("importar-texto").value = ""; }
+        else mostrarStatus("Não encontrei linhas no texto colado. Separe as equações com \\\\\\\\.", true);
+      });
+      ["op-alinhar", "op-numerar", "op-virgula", "op-exp", "op-trig", "op-padrao"].forEach((id) =>
+        $(id).addEventListener("change", demonstracaoMudou));
+      $("latex-demo").addEventListener("focus", (e) => e.target.select());
+    }
+
+    /* =====================================================================
+       HISTORICO (localStorage com try/catch; a pagina funciona sem ele)
+       ===================================================================== */
+    let historicoMemoria = [];                     // usado se o localStorage falhar
+
+    function lerHistorico() {
+      try {
+        const bruto = localStorage.getItem(CHAVE_HISTORICO);
+        const lista = bruto ? JSON.parse(bruto) : [];
+        return Array.isArray(lista) ? lista : [];
+      } catch (e) {
+        return historicoMemoria;
+      }
+    }
+
+    function gravarHistorico(lista) {
+      historicoMemoria = lista;
+      try { localStorage.setItem(CHAVE_HISTORICO, JSON.stringify(lista)); } catch (e) { /* so na memoria */ }
+    }
+
+    function registrarHistorico(latex, acao, passosGuardados) {
+      if (!latex) return;
+      // A mesma equacao sobe para o topo em vez de repetir
+      const lista = lerHistorico().filter((item) => item.latex !== latex);
+      const item = { latex, acao, quando: new Date().toISOString() };
+      if (passosGuardados && passosGuardados.length) item.passos = passosGuardados;
+      lista.unshift(item);
+      gravarHistorico(lista.slice(0, TAMANHO_HISTORICO));
+      desenharHistorico();
+    }
+
+    function formatarQuando(iso) {
+      try {
+        return new Date(iso).toLocaleString("pt-BR", {
+          day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+        });
+      } catch (e) { return ""; }
+    }
+
+    function desenharHistorico() {
+      const lista = lerHistorico();
+      listaHistorico.textContent = "";
+      avisoHistoricoVazio.hidden = lista.length > 0;
+      $("btn-limpar-historico").hidden = lista.length === 0;
+      lista.forEach((item) => {
+        const li = document.createElement("li");
+        const codigo = document.createElement("code");
+        codigo.className = "h-latex";
+        codigo.textContent = item.passos ? item.passos.map((p) => p.latex).join("  ·  ") : item.latex;
+        const meta = document.createElement("span");
+        meta.className = "h-meta";
+        meta.textContent = (item.acao || "") + " · " + formatarQuando(item.quando);
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.textContent = "Reabrir";
+        botao.setAttribute("aria-label", "Reabrir " + (item.passos ? "a demonstração" : "a equação ") + (item.passos ? "" : item.latex));
+        botao.addEventListener("click", () => {
+          if (item.passos) {
+            // A demonstracao atual, se houver, vai para o historico antes de ser trocada
+            if (passos.length) registrarHistorico(latexDaDemonstracao(), "demonstração (" + passos.length + " passos) · substituída", passosSimples());
+            carregarPassos(item.passos);
+            passos[0].mf.focus();
+            $("titulo-demo").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+            mostrarStatus("Demonstração reaberta (" + item.passos.length + " passos).");
+            return;
+          }
+          definirLatex(item.latex);
+          mostrarStatus("Equação reaberta como passo " + passos.length + ".");
+        });
+        li.append(codigo, botao, meta);
+        listaHistorico.appendChild(li);
+      });
+    }
+
+    /* =====================================================================
+       INICIO
+       ===================================================================== */
+    function ligarEventos() {
+      const ligar = (id, formato, modo, alvo) =>
+        $(id).addEventListener("click", (e) => exportar(e.currentTarget, formato, modo, alvo(formato)));
+      ligar("btn-latex", "latex", "copiar", alvoEquacao);
+      ligar("btn-equation", "equation", "copiar", alvoEquacao);
+      ligar("btn-mathml", "mathml", "copiar", alvoEquacao);
+      ligar("btn-copiar-svg", "svg", "copiar", alvoEquacao);
+      ligar("btn-copiar-png", "png", "copiar", alvoEquacao);
+      ligar("btn-svg", "svg", "baixar", alvoEquacao);
+      ligar("btn-png", "png", "baixar", alvoEquacao);
+      ligar("btn-demo-align", "align", "copiar", alvoDemonstracao);
+      ligar("btn-demo-mathml", "mathml", "copiar", alvoDemonstracao);
+      ligar("btn-demo-copiar-svg", "svg", "copiar", alvoDemonstracao);
+      ligar("btn-demo-copiar-png", "png", "copiar", alvoDemonstracao);
+      ligar("btn-demo-svg", "svg", "baixar", alvoDemonstracao);
+      ligar("btn-demo-png", "png", "baixar", alvoDemonstracao);
+      ligarDemonstracao();
+      ligarCores();
+      $("btn-limpar-historico").addEventListener("click", () => {
+        gravarHistorico([]);
+        desenharHistorico();
+        mostrarStatus("Histórico apagado.");
+      });
+
+      areaLatex.addEventListener("input", textoParaCampo);
+
+      // Ctrl+Enter (ou Cmd+Enter) copia o LaTeX, de qualquer lugar da pagina.
+      // Captura na janela para chegar antes do MathLive tratar o Enter.
+      window.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+          exportar($("btn-latex"), "latex", "copiar", alvoEquacao("latex"));
+        }
+      }, true);
+    }
+
+    async function iniciarCampo() {
+      const desistir = new Promise((_, rejeitar) => setTimeout(() => rejeitar(new Error("tempo")), ESPERA_MATHLIVE_MS));
+      try {
+        if (window.__falhaMathLive) throw new Error("falha");
+        await Promise.race([customElements.whenDefined("math-field"), desistir]);
+        // As fontes precisam ser apontadas ANTES do primeiro <math-field> entrar
+        // na pagina; por isso o campo e criado aqui, e nao no HTML.
+        MathfieldElement.fontsDirectory = URL_FONTES_MATHLIVE;
+        MathfieldElement.soundsDirectory = null;     // sem cliques de teclado
+        campoPronto = true;
+        configurarTeclado();
+        $("rapidas").hidden = false;
+        desenharRecentes();
+        restaurarDemonstracao();                     // rascunho, ou um passo em branco
+        const digitado = areaLatex.value;            // texto digitado antes de carregar
+        if (digitado && passos.length === 1 && !passos[0].latex) { passos[0].mf.value = digitado; passos[0].latex = digitado; }
+        passos[0].mf.focus();
+      } catch (e) {
+        // Sem MathLive: o textarea continua valendo para copiar e exportar um passo
+        const aviso = $("aviso-mathlive");
+        aviso.hidden = false;
+        aviso.textContent = "Não foi possível carregar o campo visual (MathLive). Verifique a conexão ou se o site " +
+          "bloqueia cdn.jsdelivr.net. Enquanto isso, digite o LaTeX no campo abaixo: copiar e exportar continuam funcionando.";
+        $("n-passo").textContent = "";
+        areaLatex.focus();
+      }
+    }
+
+    /* =====================================================================
+       TEMA (automatico / claro / escuro)
+       ===================================================================== */
+    function aplicarTema(tema) {
+      if (tema === "claro" || tema === "escuro") document.documentElement.dataset.tema = tema;
+      else { delete document.documentElement.dataset.tema; tema = "automático"; }
+      $("btn-tema").textContent = "Tema: " + tema;
+      $("btn-tema").setAttribute("aria-label", "Tema atual: " + tema + ". Clique para trocar.");
+    }
+    (function iniciarTema() {
+      let tema = "automático";
+      try { tema = localStorage.getItem(CHAVE_TEMA) || tema; } catch (e) { /* segue o sistema */ }
+      aplicarTema(tema);
+      $("btn-tema").addEventListener("click", () => {
+        const ordem = ["automático", "claro", "escuro"];
+        const atual = document.documentElement.dataset.tema || "automático";
+        const proximo = ordem[(ordem.indexOf(atual) + 1) % ordem.length];
+        aplicarTema(proximo);
+        try { localStorage.setItem(CHAVE_TEMA, proximo); } catch (e) { /* so nesta visita */ }
+      });
+    })();
+
+    ligarEventos();
+    desenharHistorico();
+    // O MathLive e carregado com 'defer'; espera o DOM pronto para iniciar.
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", iniciarCampo);
+    } else {
+      iniciarCampo();
+    }
+  </script>
+</body>
+
+</html>

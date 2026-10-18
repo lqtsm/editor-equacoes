@@ -1,0 +1,91 @@
+{
+  "name": "editor-equacoes-lqtsm",
+  "productName": "Editor de equações - LQTSM",
+  "version": "1.0.0",
+  "description": "Editor de equações do LQTSM (UERJ) como programa de desktop para Linux",
+  "author": {
+    "name": "Haroldo Candal da Silva - LQTSM/UERJ",
+    "email": "haroldocandal@gmail.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "postinstall": "node scripts/copiar_vendor.js",
+    "start": "electron .",
+    "debug": "EDITOR_DEBUG=1 electron .",
+    "vendor": "node scripts/copiar_vendor.js",
+    "sincronizar": "bash scripts/sincronizar_index.sh",
+    "test": "playwright test",
+    "dist": "electron-builder --linux AppImage deb --x64",
+    "dist:appimage": "electron-builder --linux AppImage --x64",
+    "dist:deb": "electron-builder --linux deb --x64"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "mathjax": "3.2.2",
+    "mathlive": "0.110.0",
+    "@playwright/test": "1.64.1",
+    "electron": "39.8.10",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "br.com.lqtsm.editor-equacoes",
+    "productName": "Editor de equações - LQTSM",
+    "executableName": "editor-equacoes-lqtsm",
+    "artifactName": "${name}-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*",
+      "!app/vendor/**/*.map",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icon.png",
+      "category": "Education;Science;Math",
+      "synopsis": "Editor de equações do LQTSM",
+      "desktop": {
+        "entry": {
+          "Keywords": "LaTeX;equação;matemática;química;"
+        }
+      },
+      "description": "Editor visual de equações e demonstrações (LaTeX, MathML, SVG, PNG)",
+      "syncDesktopName": true
+    },
+    "deb": {
+      "packageCategory": "science",
+      "priority": "optional",
+      "maintainer": "Haroldo Candal da Silva <haroldocandal@gmail.com>",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
+    },
+    "appImage": {
+      "license": "LICENSE"
+    },
+    "publish": null
+  },
+  "homepage": "https://lqtsm.com.br/editor-equacoes/",
+  "desktopName": "editor-equacoes-lqtsm.desktop",
+  "allowScripts": {
+    "electron@39.8.10": true
+  }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Icone do Editor de equacoes - LQTSM: um sigma nas cores da pagina
+     (azul-tinta #1f4e8c sobre #fbfbfa). Sem marca de terceiros. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="#1f4e8c"/>
+  <rect x="40" y="40" width="432" height="432" rx="80" ry="80" fill="none" stroke="#8db4ec" stroke-width="6" opacity="0.55"/>
+  <!-- Sigma desenhado como caminho (independe de fonte instalada) -->
+  <path d="M 150 126 L 362 126 L 362 176 L 222 176 L 300 256 L 222 336 L 362 336 L 362 386 L 150 386 L 150 352 L 240 256 L 150 160 Z"
+        fill="#fbfbfa"/>
+</svg>
