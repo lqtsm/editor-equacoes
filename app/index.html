@@ -139,32 +139,84 @@
     }
 
     /* ---------------------------------------------------------------------
-       CABECALHO
+       BARRA DE MENUS (Arquivo, Preferencias, Sobre), presa no topo
        --------------------------------------------------------------------- */
-    .trilha {
-      margin: 0;
+    .menus {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-height: 2.5rem;
+      padding: 0 1.5rem;
+      background: var(--fundo-campo);
+      border-bottom: 1px solid var(--linha);
+    }
+    .marca { font: 600 1.15rem/1 var(--fonte-ui); color: var(--acento); }
+    .menus-lista { display: flex; align-items: center; gap: 0.1rem; }
+    .menu { position: relative; }
+    .menu-botao {
+      padding: 0.3rem 0.65rem;
       font-size: 0.875rem;
-      color: var(--texto-suave);
+      font-weight: 500;
+      border-color: transparent;
     }
-    .trilha a { text-decoration: none; }
-    .trilha a:hover { text-decoration: underline; }
-    .trilha { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-    .tema { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
-    .trilha-direita { display: flex; align-items: center; gap: 0.75rem; }
+    .menu-botao:hover, .menu-botao[aria-expanded="true"] { background: var(--acento-suave); border-color: transparent; }
+    .menu-itens {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      min-width: 16rem;
+      padding: 0.3rem;
+      background: var(--fundo-campo);
+      border: 1px solid var(--linha-forte);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+    .menu-itens[hidden] { display: none; }
+    .menu-itens button {
+      display: flex;
+      justify-content: space-between;
+      gap: 2rem;
+      padding: 0.4rem 0.6rem;
+      font-weight: 400;
+      text-align: left;
+      border-color: transparent;
+    }
+    .menu-itens button:hover, .menu-itens button:focus-visible { background: var(--acento-suave); outline: none; }
+    .menu-itens kbd { border: 0; background: none; color: var(--texto-suave); font-weight: 400; }
+    .menu-itens hr { width: 100%; margin: 0.3rem 0; border: 0; border-top: 1px solid var(--linha); }
+    .arquivo-atual {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      font-size: 0.85rem;
+      color: var(--texto-suave);
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .arquivo-atual .alterado { color: var(--acento); }
+    .menus-direita { display: flex; align-items: center; gap: 0.75rem; }
     .fonte-padrao { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 500; }
-    .fonte-padrao select { padding: 0.15rem 0.35rem; font-size: 0.78rem; }
-
-    h1 {
-      margin: 0.25rem 0 0.25rem;
-      font-size: 1.5rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
+    .fonte-padrao select { padding: 0.2rem 0.35rem; font-size: 0.78rem; }
+    #btn-teclado { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+    @media (max-width: 700px) {
+      .menus { padding: 0 0.75rem; gap: 0.4rem; }
+      .arquivo-atual, .fonte-padrao > span, #btn-teclado .rotulo-teclado { display: none; }
     }
-
-    .intro {
-      margin: 0 0 1.5rem;
-      max-width: 62ch;
-      color: var(--texto-suave);
+    /* So para leitor de tela */
+    .so-leitor {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
 
     kbd {
@@ -215,7 +267,6 @@
       color: var(--texto-suave);
     }
 
-    .rapidas-linha .dica { margin: 0; flex: 1 1 280px; }
     #btn-teclado[aria-pressed="true"] {
       color: var(--acento-texto);
       background: var(--acento);
@@ -264,9 +315,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.45rem;
-      margin-top: 0.25rem;
-      padding: 0.6rem 0;
-      border-top: 1px solid var(--linha);
+      padding: 0.5rem 0;
       border-bottom: 1px solid var(--linha);
     }
     .rapidas-linha {
@@ -399,6 +448,13 @@
     }
     .configuracoes::backdrop { background: rgba(0, 0, 0, 0.35); }
     .configuracoes h2 { margin: 0 0 0.75rem; font-size: 1.05rem; font-weight: 600; }
+    /* Janela Sobre */
+    .sobre { width: min(620px, calc(100vw - 32px)); font-size: 0.9rem; }
+    .sobre h2 { display: flex; align-items: baseline; gap: 0.5rem; font-size: 1.2rem; }
+    .sobre h3 { margin: 1.1rem 0 0.3rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--texto-suave); }
+    .sobre p { margin: 0.3rem 0; }
+    .sobre .versao { font-size: 0.8rem; font-weight: 400; color: var(--texto-suave); }
     .config-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 0.75rem 1.5rem; }
     .config-item { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; font-weight: 500; }
     .config-item select, .config-item button { align-self: flex-start; }
@@ -724,23 +780,20 @@
     /* ---------------------------------------------------------------------
        HISTORICO
        --------------------------------------------------------------------- */
-    .historico-topo {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 1rem;
+    .historico-bloco {
       margin-top: 2rem;
       padding-top: 0.75rem;
       border-top: 1px solid var(--linha);
     }
-    .historico-topo h2 {
-      margin: 0;
+    .historico-bloco > summary {
       font-size: 0.75rem;
       font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--texto-suave);
+      cursor: pointer;
     }
+    .historico-topo { display: flex; justify-content: flex-end; }
 
     ol.historico {
       list-style: none;
@@ -776,11 +829,6 @@
       color: var(--texto-suave);
     }
 
-    .rodape {
-      margin-top: 2.5rem;
-      font-size: 0.8rem;
-      color: var(--texto-suave);
-    }
 
     /* Celular: botoes ocupam a largura em duas colunas */
     @media (max-width: 520px) {
@@ -814,42 +862,50 @@
 </head>
 
 <body>
+  <!-- BARRA DE MENUS: Arquivo, Preferencias e Sobre; a direita, o arquivo
+       aberto, a fonte padrao e o teclado de simbolos -->
+  <header class="menus" id="menus">
+    <span class="marca" aria-hidden="true">∑</span>
+    <nav class="menus-lista" role="menubar" data-i18n-aria-label aria-label="Menu principal">
+      <div class="menu">
+        <button type="button" class="menu-botao" id="menu-arquivo" role="menuitem" aria-haspopup="menu"
+          aria-expanded="false" aria-controls="menu-arquivo-itens" data-i18n>Arquivo</button>
+        <div class="menu-itens" id="menu-arquivo-itens" role="menu" hidden>
+          <button type="button" role="menuitem" id="arq-novo"><span data-i18n>Novo</span><kbd>Ctrl+N</kbd></button>
+          <button type="button" role="menuitem" id="arq-abrir"><span data-i18n>Abrir…</span><kbd>Ctrl+O</kbd></button>
+          <hr>
+          <button type="button" role="menuitem" id="arq-salvar"><span data-i18n>Salvar</span><kbd>Ctrl+S</kbd></button>
+          <button type="button" role="menuitem" id="arq-salvar-como"><span data-i18n>Salvar como…</span><kbd>Ctrl+Shift+S</kbd></button>
+          <hr>
+          <button type="button" role="menuitem" id="arq-importar"><span data-i18n>Importar de LaTeX…</span></button>
+        </div>
+      </div>
+      <button type="button" class="menu-botao" id="menu-preferencias" role="menuitem" aria-haspopup="dialog" data-i18n>Preferências</button>
+      <button type="button" class="menu-botao" id="menu-sobre" role="menuitem" aria-haspopup="dialog" data-i18n>Sobre</button>
+    </nav>
+    <span class="arquivo-atual" id="arquivo-atual"></span>
+    <span class="menus-direita">
+      <label class="fonte-padrao"><span data-i18n>Fonte padrão</span>
+        <select id="fonte-padrao" data-i18n-title title="Fonte de todas as equações que seguem o padrão (na tela, no SVG e no PNG)"></select></label>
+      <button type="button" id="btn-teclado" aria-pressed="false" hidden data-i18n-title title="Teclado de símbolos">
+        <span aria-hidden="true">⌨</span> <span class="rotulo-teclado" data-i18n>Teclado</span></button>
+    </span>
+  </header>
+
   <main class="pagina">
 
-    <p class="trilha"><a href="../materiais.html#ferramentas" data-i18n>LQTSM · Materiais › Ferramentas</a>
-      <span class="trilha-direita">
-        <label class="fonte-padrao"><span data-i18n>Fonte padrão</span>
-          <select id="fonte-padrao" data-i18n-title title="Fonte de todas as equações que seguem o padrão (na tela, no SVG e no PNG)"></select></label>
-        <button type="button" class="discreto tema" id="btn-configuracoes" aria-haspopup="dialog"><span aria-hidden="true">⚙</span>
-          <span data-i18n>Configurações</span></button>
-      </span></p>
-    <h1 data-i18n>Editor de equações</h1>
-    <p class="intro" data-i18n>Cada linha é um passo da demonstração: a equação à esquerda, a justificativa à direita.
-      <kbd>/</kbd> cria fração, <kbd>^</kbd> e <kbd>_</kbd> criam expoente e índice, <kbd>\</kbd> abre um comando
-      LaTeX, <kbd>Enter</kbd> abre um passo novo abaixo e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> copia o LaTeX do passo.
-      Para uma equação só, use um passo só.</p>
-
-    <!-- FERRAMENTAS RAPIDAS: recentes e teclado (agem no passo em foco); a cor
-         e o resto do que se faz com um trecho ficam na barra da selecao -->
+    <!-- RECENTES: ultimas ferramentas do teclado (agem no passo em foco); o
+         resto do que se faz com um trecho fica na barra da selecao -->
     <div class="rapidas" id="rapidas" hidden>
-      <div class="rapidas-linha" id="linha-recentes" hidden>
+      <div class="rapidas-linha" id="linha-recentes">
         <span class="rotulo-inline" data-i18n>Recentes</span>
         <div class="recentes" id="recentes" role="group" data-i18n-aria-label aria-label="Últimas ferramentas usadas"></div>
-      </div>
-      <div class="rapidas-linha">
-        <span class="rotulo-inline" data-i18n>Teclado</span>
-        <button type="button" id="btn-teclado" aria-pressed="false" hidden>
-          <span aria-hidden="true">⌨</span> <span data-i18n>Teclado de símbolos</span></button>
-        <span class="dica"><span data-i18n><strong>Selecione um trecho da equação</strong> para abrir a barra de formatação (cor,
-          negrito, parênteses, fração…). No teclado, a seleção também vira o argumento da ferramenta
-          (integrando, radicando, numerador…).</span>
-          <button type="button" class="discreto link" id="btn-personalizar-barra" data-i18n>Escolher o que aparece na barra…</button></span>
       </div>
     </div>
 
     <!-- PASSOS -->
     <section class="demo" aria-labelledby="titulo-demo">
-      <h2 class="rotulo" id="titulo-demo" data-i18n>Passos</h2>
+      <h2 class="so-leitor" id="titulo-demo" data-i18n>Passos</h2>
       <!-- Os <math-field> dos passos sao criados pelo script, depois de apontar
            as fontes do MathLive para o CDN (ver iniciarCampo). -->
       <ol class="passos" id="passos"></ol>
@@ -857,7 +913,6 @@
 
       <div class="acoes">
         <button type="button" class="principal" id="btn-passo-vazio" data-i18n>Novo passo</button>
-        <button type="button" id="btn-passo-importar" aria-expanded="false" aria-controls="importar" data-i18n>Importar de LaTeX…</button>
         <span class="separador"></span>
         <button type="button" class="discreto" id="btn-demo-limpar" data-i18n>Limpar tudo</button>
       </div>
@@ -914,17 +969,16 @@
       </details>
     </section>
 
-    <!-- HISTORICO -->
-    <div class="historico-topo">
-      <h2 id="titulo-historico" data-i18n>Últimas equações e demonstrações copiadas ou exportadas</h2>
-      <button type="button" class="discreto" id="btn-limpar-historico" data-i18n>Apagar histórico</button>
-    </div>
-    <ol class="historico" id="historico" aria-labelledby="titulo-historico"></ol>
-    <p class="vazio" id="historico-vazio" data-i18n>Nada por aqui ainda. Ao copiar ou exportar, a equação aparece nesta lista.</p>
+    <!-- HISTORICO (recolhido) -->
+    <details class="historico-bloco" id="historico-bloco">
+      <summary><span id="titulo-historico" data-i18n>Histórico</span> <span id="historico-contagem"></span></summary>
+      <div class="historico-topo">
+        <button type="button" class="discreto" id="btn-limpar-historico" data-i18n>Apagar histórico</button>
+      </div>
+      <ol class="historico" id="historico" aria-labelledby="titulo-historico"></ol>
+      <p class="vazio" id="historico-vazio" data-i18n>Nada por aqui ainda. Ao copiar ou exportar, a equação aparece nesta lista.</p>
+    </details>
 
-    <p class="rodape" data-i18n>Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.
-      Campo de edição: <a href="https://cortexjs.io/mathlive/" rel="noopener">MathLive</a> (MIT). Exportação:
-      <a href="https://www.mathjax.org/" rel="noopener">MathJax</a> (Apache 2.0).</p>
     <!-- BARRA DA SELECAO: aparece sobre o trecho selecionado (ver BARRA DA SELECAO no script) -->
     <div class="barra-selecao" id="barra-selecao" role="toolbar" data-i18n-aria-label aria-label="Formatar o trecho selecionado" hidden></div>
 
@@ -945,7 +999,7 @@
     <!-- CONFIGURACOES: idioma, tema, fonte padrao, convencoes e barra da selecao.
          Tudo vale na hora e fica guardado (localStorage). -->
     <dialog class="configuracoes" id="configuracoes" aria-labelledby="titulo-configuracoes">
-      <h2 id="titulo-configuracoes" data-i18n>Configurações</h2>
+      <h2 id="titulo-configuracoes" data-i18n>Preferências</h2>
       <div class="config-grade">
         <label class="config-item"><span data-i18n>Idioma</span>
           <select id="config-idioma"></select></label>
@@ -977,6 +1031,34 @@
       <div class="acoes">
         <span class="separador"></span>
         <button type="button" class="principal" id="btn-config-fechar" data-i18n>Fechar</button>
+      </div>
+    </dialog>
+
+    <!-- SOBRE: o que e, como usar, atalhos e componentes -->
+    <dialog class="configuracoes sobre" id="sobre" aria-labelledby="titulo-sobre">
+      <h2 id="titulo-sobre"><span class="marca" aria-hidden="true">∑</span> <span data-i18n>Editor de equações</span>
+        <span class="versao" id="versao"></span></h2>
+      <p data-i18n>Editor visual de equações e de demonstrações passo a passo, do <a href="https://lqtsm.com.br/" rel="noopener">LQTSM</a> (UERJ).
+        Copie como LaTeX ou MathML, ou exporte em SVG e PNG.</p>
+      <h3 data-i18n>Como usar</h3>
+      <p data-i18n>Cada linha é um passo da demonstração: a equação à esquerda, a justificativa à direita.
+        <kbd>/</kbd> cria fração, <kbd>^</kbd> e <kbd>_</kbd> criam expoente e índice, <kbd>\</kbd> abre um comando
+        LaTeX, <kbd>Enter</kbd> abre um passo novo abaixo e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> copia o LaTeX do passo.
+        Para uma equação só, use um passo só.</p>
+      <p data-i18n><strong>Selecione um trecho da equação</strong> para abrir a barra de formatação (cor,
+        negrito, parênteses, fração…). No teclado, a seleção também vira o argumento da ferramenta
+        (integrando, radicando, numerador…).</p>
+      <p data-i18n><kbd>Ctrl</kbd>+<kbd>S</kbd> salva a demonstração num arquivo <code>.lqtsm</code>, que guarda os passos,
+        os comentários e as fontes; <kbd>Ctrl</kbd>+<kbd>O</kbd> abre um <code>.lqtsm</code> ou um <code>.tex</code> com um
+        ambiente align.</p>
+      <h3 data-i18n>Privacidade e componentes</h3>
+      <p data-i18n>Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.
+        Campo de edição: <a href="https://cortexjs.io/mathlive/" rel="noopener">MathLive</a> (MIT). Exportação:
+        <a href="https://www.mathjax.org/" rel="noopener">MathJax</a> (Apache 2.0).</p>
+      <p data-i18n>Fontes das equações: STIX Two e Asana Math (SIL OFL), TeX Gyre Pagella (GUST Font License).</p>
+      <div class="acoes">
+        <span class="separador"></span>
+        <button type="button" class="principal" id="btn-sobre-fechar" data-i18n>Fechar</button>
       </div>
     </dialog>
   </main>
@@ -1117,7 +1199,9 @@
         el.setAttribute(a, tr(el.getAttribute(marca)));
       }));
       document.documentElement.lang = infoIdioma().html;
-      document.title = tr("Editor de equações | LQTSM — UERJ");
+      atualizarArquivo();
+      // Links da janela Sobre abrem fora (no programa, no navegador do sistema)
+      document.querySelectorAll("#sobre a").forEach((a) => { a.target = "_blank"; });
     }
 
     // Acao do historico ("demonstração (3 passos) · SVG baixado"), parte por parte
@@ -1186,7 +1270,10 @@
         rows: [
           ["[7]", "[8]", "[9]", tecla("\\frac{#@}{#?}", "Fração (ou digite /)"), SEP,
             tecla("#@^{2}", "Ao quadrado"), tecla("#@^{#?}", "Potência (ou ^)"), tecla("#@_{#?}", "Índice (ou _)"),
-            tecla("#@_{#?}^{#?}", "Índice e potência"), tecla("\\sqrt{#0}", "Raiz quadrada"), tecla("\\sqrt[#?]{#0}", "Raiz n-ésima")],
+            tecla("#@_{#?}^{#?}", "Índice e potência"),
+            tecla("{}^{#?}_{#?}#0", "Índices à esquerda: número de massa e número atômico (segure: só um)",
+              { variants: ["{}^{#?}#0", "{}_{#?}#0"] }),
+            tecla("\\sqrt{#0}", "Raiz quadrada", { variants: ["\\sqrt[#?]{#0}"] })],   // segure: raiz n-esima
           ["[4]", "[5]", "[6]", binario(tecla("\\times", "Vezes", { variants: ["\\cdot", "\\ast", "\\star", "\\circ"] })), SEP,
             binario(tecla("\\cdot", "Ponto de multiplicação")), antes(tecla("\\pm", "Mais ou menos", { variants: ["\\mp"] })),
             tecla("\\left(#0\\right)", "Parênteses"), tecla("\\left[#0\\right]", "Colchetes"),
@@ -1261,7 +1348,8 @@
             funcao("\\Delta_{\\mathrm{c}}", "Δ de combustão"), funcao("\\Delta_{\\mathrm{vap}}", "Δ de vaporização"), funcao("\\Delta_{\\mathrm{fus}}", "Δ de fusão"),
             funcao("\\Delta_{\\mathrm{sol}}", "Δ de solvatação"),
             peq("#@_{\\mathrm{#?}}", "Índice redondo (segure: red, ox, sol...)", { variants: DESCRITORES }),
-            tecla("#@_{\\mathrm{m}}", "Grandeza molar"), tecla("#@^{\\ddagger}", "Estado de transição (‡)")],
+            tecla("#@_{\\mathrm{m}}", "Grandeza molar"), tecla("#@^{\\ddagger}", "Estado de transição (‡)"),
+            tecla("{}^{#?}_{#?}\\mathrm{#0}", "Nuclídeo: número de massa e número atômico à esquerda do símbolo")],
           [tecla("R", "Constante dos gases"), peq("k_{\\mathrm{B}}", "Constante de Boltzmann"), peq("N_{\\mathrm{A}}", "Constante de Avogadro"),
             tecla("F", "Constante de Faraday"), tecla("h", "Constante de Planck"), tecla("\\hbar"), peq("p^{\\ominus}", "Pressão padrão"),
             peq("\\left[#0\\right]", "Concentração [ ]"), peq("a_{#0}", "Atividade"), tecla("\\rightleftharpoons", "Equilíbrio")],
@@ -1499,7 +1587,7 @@
     function desenharRecentes() {
       const lista = lerRecentes();
       const caixa = $("recentes");
-      $("linha-recentes").hidden = lista.length === 0;
+      $("rapidas").hidden = lista.length === 0;
       caixa.textContent = "";
       lista.forEach((latex) => {
         const tecla = TECLAS_POR_LATEX.get(latex);
@@ -1610,6 +1698,9 @@
         { id: "menos-um", rotulo: "Elevado a −1", latex: L`#@^{-1}`, tex: L`\square^{-1}` },
         { id: "indice", rotulo: "Índice", latex: L`#@_{#?}`, tex: L`\square_{\square}` },
         { id: "indice-potencia", rotulo: "Índice e potência", latex: L`#@_{#?}^{#?}`, tex: L`\square_{\square}^{\square}` },
+        { id: "indices-esquerda", rotulo: "Índices à esquerda (número de massa e número atômico)", latex: L`{}^{#?}_{#?}#0`, tex: L`{}^{A}_{Z}\mathrm{X}` },
+        { id: "potencia-esquerda", rotulo: "Potência à esquerda", latex: L`{}^{#?}#0`, tex: L`{}^{\square}\square` },
+        { id: "indice-esquerda", rotulo: "Índice à esquerda", latex: L`{}_{#?}#0`, tex: L`{}_{\square}\square` },
         { id: "cientifica", rotulo: "Notação científica (× 10ⁿ)", latex: L`#0\times10^{#?}`, tex: L`\square\times10^{n}` },
       ] },
       { grupo: "Acentos e sobrescritos", itens: [
@@ -1665,14 +1756,24 @@
     const ITENS_BARRA = new Map(CATALOGO_BARRA.flatMap((g) => g.itens.map((it) => [it.id, it])));
     // O conjunto que vem de fabrica (o usuario muda pelo botao de engrenagem da barra)
     const BARRA_PADRAO = ["cores", "negrito", "redondo", "palavra", "parenteses", "colchetes", "fracao", "raiz",
-      "potencia", "indice", "caixa", "riscar", "chave-baixo", "copiar"];
+      "potencia", "indice", "indices-esquerda", "caixa", "riscar", "chave-baixo", "copiar"];
     const CHAVE_BARRA = "lqtsm-editor-equacoes-barra-selecao-v1";
+    // Acoes novas que entram uma vez na barra de quem ja tinha escolhido a sua
+    const NOVIDADES_BARRA = ["indices-esquerda"];
+    const CHAVE_NOVIDADES_BARRA = "lqtsm-editor-equacoes-barra-novidades-v2";
     let campoDaBarra = null;                         // campo cuja selecao a barra mostra
 
     function escolhaDaBarra() {
       try {
         const lista = JSON.parse(localStorage.getItem(CHAVE_BARRA));
-        if (Array.isArray(lista)) return lista.filter((id) => ITENS_BARRA.has(id));
+        if (Array.isArray(lista)) {
+          if (!localStorage.getItem(CHAVE_NOVIDADES_BARRA)) {
+            NOVIDADES_BARRA.forEach((id) => { if (!lista.includes(id)) lista.push(id); });
+            localStorage.setItem(CHAVE_BARRA, JSON.stringify(lista));
+            localStorage.setItem(CHAVE_NOVIDADES_BARRA, "1");
+          }
+          return lista.filter((id) => ITENS_BARRA.has(id));
+        }
       } catch (e) { /* padrao */ }
       return BARRA_PADRAO.slice();
     }
@@ -1803,7 +1904,6 @@
       });
       $("btn-escolha-fechar").addEventListener("click", () => janela.close());
       janela.addEventListener("close", () => { const c = campoEmFoco(); if (c) c.focus(); });
-      $("btn-personalizar-barra").addEventListener("click", abrirEscolhaDaBarra);
     }
 
     // Chamado a cada mudanca de selecao de um campo (ver criarCampo)
@@ -2213,7 +2313,10 @@
     let temporizadorStatus = null;
     function mostrarStatus(mensagem, ehErro = false) {
       clearTimeout(temporizadorStatus);
-      const alvos = [elStatus, $("status-demo")];
+      // Uma mensagem so, perto de onde se agiu (passos ou demonstracao inteira)
+      const naDemo = !!(document.activeElement && document.activeElement.closest(".demo-toda"));
+      const alvos = naDemo ? [$("status-demo")] : [elStatus];
+      [elStatus, $("status-demo")].forEach((el) => { if (!alvos.includes(el)) el.textContent = ""; });
       alvos.forEach((el) => {
         el.textContent = mensagem;
         el.classList.toggle("erro", ehErro);
@@ -2717,9 +2820,12 @@
       try { localStorage.setItem(CHAVE_DEMONSTRACAO, JSON.stringify(passosSimples())); } catch (e) { /* sem rascunho */ }
     }
 
-    // Chamado a cada mudanca: renumera, salva e atualiza o LaTeX exibido
-    function demonstracaoMudou() {
+    // Chamado a cada mudanca: renumera, salva e atualiza o LaTeX exibido.
+    // marcar = false para o que nao muda o documento (rascunho restaurado,
+    // convencoes de saida)
+    function demonstracaoMudou(marcar = true) {
       renumerarPassos();
+      if (marcar) marcarAlterado();
       clearTimeout(temporizadorDemo);
       temporizadorDemo = setTimeout(() => {
         salvarDemonstracao();
@@ -2853,7 +2959,7 @@
       let lista = [];
       try { lista = JSON.parse(localStorage.getItem(CHAVE_DEMONSTRACAO) || "[]"); } catch (e) { lista = []; }
       carregarPassos(Array.isArray(lista) ? lista : []);
-      demonstracaoMudou();
+      demonstracaoMudou(false);
     }
 
     /* ---- LaTeX da demonstracao ------------------------------------------ */
@@ -2967,19 +3073,16 @@
         limparDemonstracao();
       });
       const importar = $("importar");
-      $("btn-passo-importar").addEventListener("click", (e) => {
-        importar.hidden = !importar.hidden;
-        e.currentTarget.setAttribute("aria-expanded", String(!importar.hidden));
-        if (!importar.hidden) $("importar-texto").focus();
-      });
-      $("btn-importar-fechar").addEventListener("click", () => { importar.hidden = true; $("btn-passo-importar").setAttribute("aria-expanded", "false"); });
+      $("btn-importar-fechar").addEventListener("click", () => { importar.hidden = true; });
       $("btn-importar-ok").addEventListener("click", () => {
         const n = importarAlign($("importar-texto").value);
         if (n) { mostrarStatus(n === 1 ? tr("1 passo acrescentado.") : tr("{n} passos acrescentados.", { n })); $("importar-texto").value = ""; }
         else mostrarStatus(tr("Não encontrei linhas no texto colado. Separe as equações com \\\\\\\\."), true);
       });
-      ["op-alinhar", "op-numerar", "op-virgula", "op-exp", "op-trig", "op-padrao"].forEach((id) =>
-        $(id).addEventListener("change", demonstracaoMudou));
+      // Alinhar e numerar vao no arquivo; as convencoes sao preferencias
+      ["op-alinhar", "op-numerar"].forEach((id) => $(id).addEventListener("change", () => demonstracaoMudou()));
+      ["op-virgula", "op-exp", "op-trig", "op-padrao"].forEach((id) =>
+        $(id).addEventListener("change", () => demonstracaoMudou(false)));
       $("latex-demo").addEventListener("focus", (e) => e.target.select());
     }
 
@@ -3026,6 +3129,7 @@
       const lista = lerHistorico();
       listaHistorico.textContent = "";
       avisoHistoricoVazio.hidden = lista.length > 0;
+      $("historico-contagem").textContent = lista.length ? "(" + lista.length + ")" : "";
       $("btn-limpar-historico").hidden = lista.length === 0;
       lista.forEach((item) => {
         const li = document.createElement("li");
@@ -3105,7 +3209,6 @@
         campoPronto = true;
         configurarTeclado();
         ligarBarraSelecao();                         // rotulos desenhados pelo MathLive: so depois dele
-        $("rapidas").hidden = false;
         desenharRecentes();
         restaurarDemonstracao();                     // rascunho, ou um passo em branco
         // Janela redimensionada: cada passo recalcula o tamanho da fonte
@@ -3125,6 +3228,245 @@
         painel.appendChild(criarBarra(null));
         areaLatex.focus();
       }
+    }
+
+    /* =====================================================================
+       ARQUIVO (Novo, Abrir, Salvar, Salvar como) E BARRA DE MENUS
+       ---------------------------------------------------------------------
+       O arquivo .lqtsm e um JSON com os passos (LaTeX, comentario, fonte
+       fixada) e as opcoes da demonstracao (alinhar, numerar). Abrir tambem
+       aceita .tex: cada linha do align vira um passo.
+       No programa de desktop os dialogos sao os do sistema (lqtsmNativo, ver
+       preload.js); no navegador, a File System Access API quando existe
+       (Chrome, Edge) e, sem ela, download e <input type="file">.
+       O rascunho continua no localStorage a cada mudanca; aqui so se guarda
+       o nome, o caminho e se ha alteracoes nao salvas.
+       ===================================================================== */
+    const VERSAO_EDITOR = "1.1.0";
+    const EXTENSAO = ".lqtsm";
+    const FORMATO_ARQUIVO = "editor-equacoes-lqtsm";
+    const CHAVE_ARQUIVO = "lqtsm-editor-equacoes-arquivo-v1";
+    const TIPOS_PICKER = [
+      { description: "Editor de equações (.lqtsm)", accept: { "application/json": [EXTENSAO] } },
+      { description: "LaTeX (.tex)", accept: { "text/x-tex": [".tex"] } },
+    ];
+    const nativo = window.lqtsmNativo && window.lqtsmNativo.salvarArquivo ? window.lqtsmNativo : null;
+    let arquivo = { nome: "", caminho: "", alterado: false };
+    let alcaArquivo = null;                         // FileSystemFileHandle (navegador), so nesta visita
+
+    try {
+      const salvo = JSON.parse(localStorage.getItem(CHAVE_ARQUIVO) || "null");
+      if (salvo && typeof salvo.nome === "string") arquivo = { nome: salvo.nome, caminho: String(salvo.caminho || ""), alterado: !!salvo.alterado };
+    } catch (e) { /* sem nome: documento sem titulo */ }
+
+    function atualizarArquivo() {
+      const base = tr("Editor de equações | LQTSM — UERJ");
+      const nome = arquivo.nome || tr("Sem título");
+      const el = $("arquivo-atual");
+      el.textContent = nome;
+      el.title = arquivo.caminho || nome;
+      if (arquivo.alterado) {
+        const marca = document.createElement("span");
+        marca.className = "alterado";
+        marca.textContent = " •";
+        marca.title = tr("Alterações não salvas");
+        el.appendChild(marca);
+      }
+      document.title = arquivo.nome ? (arquivo.alterado ? "• " : "") + arquivo.nome + " — " + base : base;
+      if (nativo) nativo.estadoDoArquivo({ nome, alterado: arquivo.alterado && temConteudo() });
+    }
+    function definirArquivo(mudancas) {
+      Object.assign(arquivo, mudancas);
+      try { localStorage.setItem(CHAVE_ARQUIVO, JSON.stringify(arquivo)); } catch (e) { /* so nesta visita */ }
+      atualizarArquivo();
+    }
+    function marcarAlterado() {
+      if (!arquivo.alterado) definirArquivo({ alterado: true });
+    }
+    const temConteudo = () => passos.some((p) => p.latex || p.comentario);
+
+    function conteudoDoArquivo() {
+      return JSON.stringify({
+        formato: FORMATO_ARQUIVO,
+        versao: 1,
+        opcoes: { alinhar: $("op-alinhar").checked, numerar: $("op-numerar").checked },
+        passos: passos.map((p) => Object.assign({ latex: p.latex, comentario: p.comentario }, p.fonte ? { fonte: p.fonte } : {})),
+      }, null, 2) + "\n";
+    }
+
+    // Poe o conteudo de um arquivo na pagina; devolve true se era um .lqtsm
+    function carregarConteudo(texto, nome) {
+      const ehJson = /^\s*\{/.test(texto);
+      if (!ehJson) {
+        const antes = passosSimples();
+        limparDemonstracao(true);
+        if (!importarAlign(texto)) {
+          carregarPassos(antes);
+          throw new Error(tr("Não encontrei equações neste arquivo."));
+        }
+        ativarCampo(passos[0].mf);
+        return false;
+      }
+      let dados = null;
+      try { dados = JSON.parse(texto); } catch (e) { /* cai no erro abaixo */ }
+      if (!dados || dados.formato !== FORMATO_ARQUIVO || !Array.isArray(dados.passos)) {
+        throw new Error(tr("{nome} não é um arquivo do Editor de equações.", { nome }));
+      }
+      const op = dados.opcoes || {};
+      $("op-alinhar").checked = op.alinhar !== false;
+      $("op-numerar").checked = !!op.numerar;
+      carregarPassos(dados.passos.map((q) => ({
+        latex: String(q.latex || ""), comentario: String(q.comentario || ""), fonteFixa: q.fonte ? String(q.fonte) : "",
+      })));
+      return true;
+    }
+
+    // Sem titulo ou com alteracoes: pergunta antes de trocar de documento
+    async function podeDescartar() {
+      if (!arquivo.alterado || !temConteudo()) return true;
+      let resposta;
+      if (nativo) resposta = await nativo.perguntarAlteracoes();
+      else resposta = window.confirm(tr("Há alterações não salvas. Descartar e continuar?")) ? "descartar" : "cancelar";
+      if (resposta === "salvar") return salvar(false);
+      return resposta === "descartar";
+    }
+
+    async function novoDocumento() {
+      if (!(await podeDescartar())) return;
+      carregarPassos([]);
+      alcaArquivo = null;
+      definirArquivo({ nome: "", caminho: "", alterado: false });
+      mostrarStatus(tr("Novo documento."));
+    }
+
+    function escolherArquivoNoNavegador() {
+      return new Promise((ok) => {
+        const entrada = document.createElement("input");
+        entrada.type = "file";
+        entrada.accept = EXTENSAO + ",.tex,.txt,application/json";
+        entrada.addEventListener("change", () => ok(entrada.files[0] || null));
+        entrada.addEventListener("cancel", () => ok(null));
+        entrada.click();
+      });
+    }
+
+    async function abrirDocumento() {
+      if (!(await podeDescartar())) return;
+      try {
+        let nome = "", caminho = "", texto = "", alca = null;
+        if (nativo) {
+          const r = await nativo.abrirArquivo();
+          if (!r) return;
+          ({ nome, caminho, conteudo: texto } = r);
+        } else if (window.showOpenFilePicker) {
+          [alca] = await window.showOpenFilePicker({ types: TIPOS_PICKER });
+          const f = await alca.getFile();
+          nome = f.name; texto = await f.text();
+        } else {
+          const f = await escolherArquivoNoNavegador();
+          if (!f) return;
+          nome = f.name; texto = await f.text();
+        }
+        const ehNosso = carregarConteudo(texto, nome);
+        // Um .tex vira um documento novo: Salvar pede o nome do .lqtsm
+        alcaArquivo = ehNosso ? alca : null;
+        definirArquivo(ehNosso ? { nome, caminho, alterado: false } : { nome: "", caminho: "", alterado: true });
+        mostrarStatus(tr("{nome} aberto.", { nome }));
+      } catch (e) {
+        if (e && e.name === "AbortError") return;    // dialogo cancelado
+        mostrarStatus(e && e.message ? e.message : String(e), true);
+      }
+    }
+
+    async function salvar(comoNovo) {
+      const conteudo = conteudoDoArquivo();
+      const sugestao = arquivo.nome || tr("Sem título") + EXTENSAO;
+      try {
+        if (nativo) {
+          const r = await nativo.salvarArquivo({ conteudo, caminho: comoNovo ? "" : arquivo.caminho, nome: sugestao });
+          if (!r) return false;                      // cancelado
+          definirArquivo({ nome: r.nome, caminho: r.caminho, alterado: false });
+        } else if (window.showSaveFilePicker) {
+          if (comoNovo || !alcaArquivo) alcaArquivo = await window.showSaveFilePicker({ suggestedName: sugestao, types: TIPOS_PICKER.slice(0, 1) });
+          const escrita = await alcaArquivo.createWritable();
+          await escrita.write(conteudo);
+          await escrita.close();
+          definirArquivo({ nome: alcaArquivo.name, caminho: "", alterado: false });
+        } else {
+          baixar(new Blob([conteudo], { type: "application/json" }), sugestao);
+          definirArquivo({ nome: sugestao, caminho: "", alterado: false });
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") return false;
+        mostrarStatus(tr("Não foi possível salvar: {erro}", { erro: e && e.message ? e.message : String(e) }), true);
+        return false;
+      }
+      mostrarStatus(tr("Salvo: {nome}", { nome: arquivo.nome }));
+      return true;
+    }
+
+    function abrirImportar() {
+      const importar = $("importar");
+      importar.hidden = false;
+      importar.scrollIntoView({ block: "nearest" });
+      $("importar-texto").focus();
+    }
+
+    function ligarMenus() {
+      const botao = $("menu-arquivo");
+      const itens = $("menu-arquivo-itens");
+      const mostrarMenu = (sim, focarPrimeiro) => {
+        itens.hidden = !sim;
+        botao.setAttribute("aria-expanded", String(sim));
+        if (sim) esconderBarraSelecao();
+        if (sim && focarPrimeiro) itens.querySelector("button").focus();
+      };
+      botao.addEventListener("click", () => mostrarMenu(itens.hidden, false));
+      botao.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") { e.preventDefault(); mostrarMenu(true, true); }
+      });
+      itens.addEventListener("keydown", (e) => {
+        const lista = [...itens.querySelectorAll("button")];
+        const i = lista.indexOf(document.activeElement);
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          lista[(i + (e.key === "ArrowDown" ? 1 : -1) + lista.length) % lista.length].focus();
+        } else if (e.key === "Escape" || e.key === "Tab") {
+          mostrarMenu(false);
+          botao.focus();
+        }
+      });
+      itens.addEventListener("click", (e) => { if (e.target.closest("button")) mostrarMenu(false); });
+      document.addEventListener("pointerdown", (e) => {
+        if (!itens.hidden && !e.target.closest(".menu")) mostrarMenu(false);
+      });
+
+      $("arq-novo").addEventListener("click", novoDocumento);
+      $("arq-abrir").addEventListener("click", abrirDocumento);
+      $("arq-salvar").addEventListener("click", () => salvar(false));
+      $("arq-salvar-como").addEventListener("click", () => salvar(true));
+      $("arq-importar").addEventListener("click", abrirImportar);
+
+      const sobre = $("sobre");
+      $("versao").textContent = VERSAO_EDITOR;
+      $("menu-sobre").addEventListener("click", () => { esconderBarraSelecao(); sobre.showModal(); });
+      $("btn-sobre-fechar").addEventListener("click", () => sobre.close());
+
+      // Atalhos de arquivo, de qualquer lugar (captura: antes do MathLive)
+      window.addEventListener("keydown", (e) => {
+        if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+        const tecla = e.key.toLowerCase();
+        const acao = tecla === "s" ? () => salvar(e.shiftKey)
+          : tecla === "o" && !e.shiftKey ? abrirDocumento
+          : tecla === "n" && !e.shiftKey ? novoDocumento : null;
+        if (!acao) return;
+        e.preventDefault();
+        e.stopPropagation();
+        acao();
+      }, true);
+
+      // Programa de desktop: fechar a janela com alteracoes -> "Salvar" aqui
+      if (nativo) nativo.aoPedirSalvarEFechar(async () => { if (await salvar(false)) nativo.fecharJanela(); });
     }
 
     /* =====================================================================
@@ -3178,7 +3520,7 @@
       IDIOMAS.forEach((i) => idiomas.add(new Option(i.nome, i.id)));
       idiomas.value = idioma;
       idiomas.addEventListener("change", () => mudarIdioma(idiomas.value));
-      $("btn-configuracoes").addEventListener("click", () => { esconderBarraSelecao(); janela.showModal(); });
+      $("menu-preferencias").addEventListener("click", () => { esconderBarraSelecao(); janela.showModal(); });
       $("btn-config-fechar").addEventListener("click", () => janela.close());
       $("btn-config-barra").addEventListener("click", () => { janela.close(); abrirEscolhaDaBarra(); });
     }
@@ -3186,6 +3528,7 @@
     traduzirPagina();
     ligarEventos();
     ligarConfiguracoes();
+    ligarMenus();
     avisarIdiomaAoPrograma();
     desenharHistorico();
     // O MathLive e carregado com 'defer'; espera o DOM pronto para iniciar.

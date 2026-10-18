@@ -82,17 +82,24 @@ mudar, acrescente o pacote `@mathjax/mathjax-<fonte>-font` em `package.json` e o
   e `image/svg+xml`; PNG com `nativeImage`).
 - **Baixar SVG/PNG**: `session.on('will-download')` abre "Salvar como" com o nome sugerido
   pela página, na pasta Imagens (lembra a última pasta usada).
-- **Links externos** (trilha "LQTSM · Materiais › Ferramentas", créditos do rodapé) abrem
-  no navegador padrão; o link relativo `../materiais.html` é resolvido contra
-  `https://lqtsm.com.br/`.
-- **Janela**: título "Editor de equações - LQTSM", 1100×900 inicial, mínimo 420×600,
-  tamanho e posição lembrados, sem barra de menu mas com Ctrl+C/V/X/Z/A e Ctrl+= / Ctrl+− /
-  Ctrl+0; instância única; DevTools só com `EDITOR_DEBUG=1`.
+- **Links externos** (janela Sobre) abrem no navegador padrão; um link relativo da página é
+  resolvido contra `https://lqtsm.com.br/`.
+- **Janela**: título vindo da página (nome do arquivo aberto), 1100×900 inicial, mínimo
+  420×600, tamanho e posição lembrados. A barra de menus é a da página (Arquivo,
+  Preferências, Sobre); o menu nativo fica escondido, só com os atalhos Ctrl+C/V/X/Z/A e
+  Ctrl+= / Ctrl+− / Ctrl+0. Instância única; DevTools só com `EDITOR_DEBUG=1`.
+- **Arquivo `.lqtsm`** (Arquivo > Novo/Abrir/Salvar/Salvar como; Ctrl+N/O/S/Shift+S): a
+  página monta e lê o conteúdo (JSON com passos, comentários, fontes e opções); o
+  `main.js` só abre os diálogos do sistema e lê/grava o disco (`lqtsmNativo.abrirArquivo`,
+  `salvarArquivo`), e só grava arquivos `.lqtsm`. Fechar a janela com alterações não salvas
+  pergunta Salvar / Não salvar / Cancelar (o rascunho fica no `localStorage` de todo modo);
+  `EDITOR_SEM_PERGUNTA=1` desliga a pergunta (testes). No site, a página usa a File System
+  Access API (Chrome/Edge) ou, sem ela, download e `<input type="file">`.
 
 ## Idiomas
 
 A interface vem em inglês (padrão), português, espanhol e chinês; o usuário escolhe em
-**Configurações** (botão ⚙ no topo), junto com o tema, a fonte padrão, as convenções de saída
+**Preferências** (barra de menus), junto com o tema, a fonte padrão, as convenções de saída
 e o que aparece na barra da seleção. Tudo fica guardado no `localStorage`.
 
 - O texto em português do código é a chave: `tr("Passo removido.")` devolve a tradução de

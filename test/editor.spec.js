@@ -47,7 +47,8 @@ test.beforeAll(async () => {
   app = await electron.launch({
     cwd: RAIZ,
     args: [".", ...ARGS_EXTRA],
-    env: { ...process.env, XDG_CONFIG_HOME: userData, EDITOR_DEBUG: "0" },
+    // sem a pergunta "Salvar alteracoes?" ao fechar (o teste 14 a confere a parte)
+    env: { ...process.env, XDG_CONFIG_HOME: userData, EDITOR_DEBUG: "0", EDITOR_SEM_PERGUNTA: "1" },
   });
   page = await app.firstWindow();
   await page.waitForSelector("math-field", { timeout: ESPERA_MATHLIVE_MS });
@@ -66,7 +67,7 @@ test("a pagina abre offline pelo protocolo app:// em contexto seguro", async () 
   expect(page.url()).toBe("app://editor/index.html");
   expect(await page.evaluate(() => window.isSecureContext)).toBe(true);
   expect(await page.evaluate(() => typeof ClipboardItem)).toBe("function");
-  await expect(page.locator(".rodape")).toContainText("Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.");
+  await expect(page.locator("#sobre")).toContainText("Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.");
   const fontes = await page.evaluate(async () => {
     await document.fonts.ready;
     return [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family);
@@ -300,7 +301,8 @@ test("10. escolher o que aparece na barra da selecao", async () => {
   await expect(barra.getByRole("button", { name: "Parênteses" })).toHaveCount(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem(CHAVE_BARRA)))).toContain("vetor");
   // Marcar tudo: a barra traz o catalogo inteiro (todos os grupos)
-  await page.locator("#btn-personalizar-barra").click();
+  await page.locator("#menu-preferencias").click();
+  await page.locator("#btn-config-barra").click();
   await janela.getByRole("button", { name: "Marcar tudo" }).click();
   await janela.getByRole("button", { name: "Fechar" }).click();
   await mf.focus();
@@ -309,8 +311,9 @@ test("10. escolher o que aparece na barra da selecao", async () => {
   await expect(barra.locator("button")).toHaveCount(total);
   await expect(barra.getByRole("button", { name: "Apagar o trecho" })).toHaveCount(1);
   await expect(barra.getByRole("button", { name: "Marca-texto (fundo amarelo)" })).toHaveCount(1);
-  // Restaurar o padrao (pelo link da pagina)
-  await page.locator("#btn-personalizar-barra").click();
+  // Restaurar o padrao (por Preferencias)
+  await page.locator("#menu-preferencias").click();
+  await page.locator("#btn-config-barra").click();
   await janela.getByRole("button", { name: "Restaurar o padrão" }).click();
   await janela.getByRole("button", { name: "Fechar" }).click();
   await mf.focus();
@@ -394,13 +397,13 @@ test("12. toda chave usada tem traducao em ingles, espanhol e chines", async () 
   }
 });
 
-test("13. Configuracoes: idioma, tema e fonte padrao valem na hora", async () => {
+test("13. Preferencias: idioma, tema e fonte padrao valem na hora", async () => {
   const janela = page.locator("#configuracoes");
-  await page.locator("#btn-configuracoes").click();
+  await page.locator("#menu-preferencias").click();
   await expect(janela).toBeVisible();
   // Ingles: pagina, botoes montados pelo script, teclado, mensagens, <html lang>
   await page.locator("#config-idioma").selectOption("en");
-  await expect(page.locator("h1")).toHaveText("Equation editor");
+  await expect(page.locator("#menu-arquivo")).toHaveText("File");
   await expect(page.locator("#btn-passo-vazio")).toHaveText(await page.evaluate(() => IDIOMAS_EDITOR.en["Novo passo"]));
   expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
   expect(await page.locator(".passo-barra button[data-acao='latex']").first().getAttribute("title"))
@@ -409,7 +412,7 @@ test("13. Configuracoes: idioma, tema e fonte padrao valem na hora", async () =>
   expect(dicaTecla).toBe(await page.evaluate(() => IDIOMAS_EDITOR.en["Raiz quadrada"]));
   // Chines
   await page.locator("#config-idioma").selectOption("zh");
-  await expect(page.locator("h1")).toHaveText(await page.evaluate(() => IDIOMAS_EDITOR.zh["Editor de equações"]));
+  await expect(page.locator("#menu-arquivo")).toHaveText(await page.evaluate(() => IDIOMAS_EDITOR.zh["Arquivo"]));
   expect(await page.evaluate(() => document.documentElement.lang)).toBe("zh-CN");
   // A escolha fica guardada
   expect(await page.evaluate(() => localStorage.getItem(CHAVE_IDIOMA))).toBe("zh");
@@ -422,7 +425,80 @@ test("13. Configuracoes: idioma, tema e fonte padrao valem na hora", async () =>
   await page.locator("#config-idioma").selectOption("pt");
   await page.locator("#config-tema").selectOption("automático");
   await page.locator("#config-fonte").selectOption("tex");
-  await expect(page.locator("h1")).toHaveText("Editor de equações");
+  await expect(page.locator("#menu-arquivo")).toHaveText("Arquivo");
   await page.locator("#btn-config-fechar").click();
   await expect(janela).toBeHidden();
+});
+
+test("14. Arquivo: salvar, abrir e Salvar como pelo menu e pelos atalhos", async () => {
+  const pasta = fs.mkdtempSync(path.join(os.tmpdir(), "editor-lqtsm-arquivo-"));
+  const destino = path.join(pasta, "prova");                 // sem extensao: o programa poe .lqtsm
+  // Dialogos do sistema substituidos por respostas fixas
+  await app.evaluate(({ dialog }, alvo) => {
+    dialog.showSaveDialogSync = () => alvo;
+    dialog.showOpenDialogSync = () => [alvo + ".lqtsm"];
+  }, destino);
+  await page.evaluate(() => importarAlign(String.raw`{}^{14}_{6}\mathrm{C} &= x && \text{nuclídeo} \\ y &= 2`));
+  await expect(page.locator("#arquivo-atual .alterado")).toHaveCount(1);
+  // Arquivo > Salvar (sem nome ainda: pede o caminho)
+  await page.locator("#menu-arquivo").click();
+  await page.locator("#arq-salvar").click();
+  await expect(page.locator("#arquivo-atual")).toHaveText("prova.lqtsm");
+  const dados = JSON.parse(fs.readFileSync(destino + ".lqtsm", "utf8"));
+  expect(dados.formato).toBe("editor-equacoes-lqtsm");
+  expect(dados.passos.map((p) => p.comentario)).toContain("nuclídeo");
+  expect(await page.title()).toContain("prova.lqtsm");
+  // Novo documento (Ctrl+N) e Abrir (Ctrl+O) traz os passos de volta
+  const n = dados.passos.length;
+  await campos().first().focus();
+  await page.keyboard.press("Control+n");
+  await expect(campos()).toHaveCount(1);
+  await expect(page.locator("#arquivo-atual")).not.toHaveText("prova.lqtsm");
+  await page.keyboard.press("Control+o");
+  await expect(campos()).toHaveCount(n);
+  await expect(page.locator("#arquivo-atual")).toHaveText("prova.lqtsm");
+  expect((await page.evaluate(() => passos.map((p) => p.latex))).join(" ")).toContain(String.raw`{}^{14}_{6}\mathrm{C}`);
+  // Ctrl+S com nome: grava no mesmo arquivo, sem perguntar
+  await page.evaluate(() => { passos[0].comentario = "mudado"; demonstracaoMudou(); });
+  await expect(page.locator("#arquivo-atual .alterado")).toHaveCount(1);
+  await app.evaluate(({ dialog }) => { dialog.showSaveDialogSync = () => { throw new Error("nao devia perguntar"); }; });
+  await page.keyboard.press("Control+s");
+  await expect(page.locator("#arquivo-atual .alterado")).toHaveCount(0);
+  expect(JSON.parse(fs.readFileSync(destino + ".lqtsm", "utf8")).passos[0].comentario).toBe("mudado");
+  // Fechar com alteracoes pergunta (aqui: Cancelar, a janela fica)
+  await page.evaluate(() => { passos[0].comentario = "de novo"; demonstracaoMudou(); });
+  const perguntou = await app.evaluate(async ({ dialog, BrowserWindow }) => {
+    let vezes = 0;
+    dialog.showMessageBoxSync = () => { vezes++; return 2; };
+    const antes = process.env.EDITOR_SEM_PERGUNTA;
+    process.env.EDITOR_SEM_PERGUNTA = "0";
+    BrowserWindow.getAllWindows()[0].close();             // o evento "close" chega depois
+    await new Promise((ok) => setTimeout(ok, 800));
+    process.env.EDITOR_SEM_PERGUNTA = antes;
+    return vezes;
+  });
+  expect(perguntou).toBe(1);
+  expect(await page.evaluate(() => document.visibilityState)).toBe("visible");
+  // A janela Sobre abre pelo menu
+  await page.locator("#menu-sobre").click();
+  await expect(page.locator("#sobre")).toBeVisible();
+  await page.locator("#btn-sobre-fechar").click();
+  fs.rmSync(pasta, { recursive: true, force: true });
+});
+
+test("15. indices a esquerda: teclado e barra da selecao", async () => {
+  const teclas = await page.evaluate(() => ABAS_TECLADO.flatMap((a) => a.rows ? a.rows.flat() : []).map((k) => k && k.latex));
+  expect(teclas).toContain("{}^{#?}_{#?}#0");
+  expect(teclas).toContain("{}^{#?}_{#?}\\mathrm{#0}");
+  await page.evaluate(() => carregarPassos([{ latex: "C" }]));
+  const mf = campos().first();
+  await mf.focus();
+  await page.keyboard.press("Control+a");
+  const barra = page.locator("#barra-selecao");
+  await barra.getByRole("button", { name: "Índices à esquerda (número de massa e número atômico)" }).click();
+  await page.keyboard.type("14");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("6");
+  // O MathLive guarda o indice antes da potencia e comeca pela caixinha de baixo
+  await expect.poll(() => page.evaluate(() => passos[0].latex)).toBe("{}_{14}^6C");
 });

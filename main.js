@@ -14,19 +14,31 @@ const NOME_APP = "editor-equacoes-lqtsm";          // ~/.config/editor-equacoes-
 // Textos do proprio programa (janela, "Salvar como", menu), no idioma que a
 // pagina escolhe (ela avisa por lqtsmNativo.definirIdioma; ver preload.js)
 const TEXTOS = {
-  en: { titulo: "Equation editor - LQTSM", salvar: "Save {fmt}", imagem: "{fmt} image",
+  en: { abrir: "Open", salvarComo: "Save as", documento: "Equation editor document", latex: "LaTeX",
+    pergunta: "Save the changes to “{fmt}”?", detalhe: "If you don't save, the changes stay only in this editor's draft.",
+    botaoSalvar: "Save", botaoDescartar: "Don't save", botaoCancelar: "Cancel",
+    titulo: "Equation editor - LQTSM", salvar: "Save {fmt}", imagem: "{fmt} image",
     editar: "Edit", desfazer: "Undo", refazer: "Redo", recortar: "Cut", copiar: "Copy", colar: "Paste", selecionarTudo: "Select all",
     ver: "View", aumentar: "Zoom in", diminuir: "Zoom out", normal: "Actual size", telaCheia: "Full screen", devtools: "Developer tools",
     janela: "Window", minimizar: "Minimize", fechar: "Close" },
-  pt: { titulo: "Editor de equações - LQTSM", salvar: "Salvar {fmt}", imagem: "Imagem {fmt}",
+  pt: { abrir: "Abrir", salvarComo: "Salvar como", documento: "Documento do Editor de equações", latex: "LaTeX",
+    pergunta: "Salvar as alterações em “{fmt}”?", detalhe: "Se não salvar, as alterações ficam só no rascunho deste editor.",
+    botaoSalvar: "Salvar", botaoDescartar: "Não salvar", botaoCancelar: "Cancelar",
+    titulo: "Editor de equações - LQTSM", salvar: "Salvar {fmt}", imagem: "Imagem {fmt}",
     editar: "Editar", desfazer: "Desfazer", refazer: "Refazer", recortar: "Recortar", copiar: "Copiar", colar: "Colar", selecionarTudo: "Selecionar tudo",
     ver: "Ver", aumentar: "Aumentar", diminuir: "Diminuir", normal: "Tamanho normal", telaCheia: "Tela cheia", devtools: "Ferramentas de desenvolvedor",
     janela: "Janela", minimizar: "Minimizar", fechar: "Fechar" },
-  es: { titulo: "Editor de ecuaciones - LQTSM", salvar: "Guardar {fmt}", imagem: "Imagen {fmt}",
+  es: { abrir: "Abrir", salvarComo: "Guardar como", documento: "Documento del Editor de ecuaciones", latex: "LaTeX",
+    pergunta: "¿Guardar los cambios en “{fmt}”?", detalhe: "Si no guardas, los cambios quedan solo en el borrador de este editor.",
+    botaoSalvar: "Guardar", botaoDescartar: "No guardar", botaoCancelar: "Cancelar",
+    titulo: "Editor de ecuaciones - LQTSM", salvar: "Guardar {fmt}", imagem: "Imagen {fmt}",
     editar: "Editar", desfazer: "Deshacer", refazer: "Rehacer", recortar: "Cortar", copiar: "Copiar", colar: "Pegar", selecionarTudo: "Seleccionar todo",
     ver: "Ver", aumentar: "Ampliar", diminuir: "Reducir", normal: "Tamaño real", telaCheia: "Pantalla completa", devtools: "Herramientas de desarrollo",
     janela: "Ventana", minimizar: "Minimizar", fechar: "Cerrar" },
-  zh: { titulo: "公式编辑器 - LQTSM", salvar: "保存 {fmt}", imagem: "{fmt} 图像",
+  zh: { abrir: "打开", salvarComo: "另存为", documento: "公式编辑器文档", latex: "LaTeX",
+    pergunta: "是否保存对“{fmt}”的更改？", detalhe: "如果不保存，更改只保留在本编辑器的草稿中。",
+    botaoSalvar: "保存", botaoDescartar: "不保存", botaoCancelar: "取消",
+    titulo: "公式编辑器 - LQTSM", salvar: "保存 {fmt}", imagem: "{fmt} 图像",
     editar: "编辑", desfazer: "撤销", refazer: "重做", recortar: "剪切", copiar: "复制", colar: "粘贴", selecionarTudo: "全选",
     ver: "视图", aumentar: "放大", diminuir: "缩小", normal: "实际大小", telaCheia: "全屏", devtools: "开发者工具",
     janela: "窗口", minimizar: "最小化", fechar: "关闭" },
@@ -167,10 +179,65 @@ function ligarClipboard() {
     if (!TEXTOS[id] || id === idiomaAtual) return;
     idiomaAtual = id;
     gravarEstado({ idioma: id });
-    if (janela) janela.setTitle(texto("titulo"));
     instalarAtalhos();
   });
   ipcMain.handle("clipboard:lerTexto", () => clipboard.readText());
+}
+
+/* ---- Arquivo .lqtsm: dialogos do sistema e aviso ao fechar ----
+   A pagina monta e le o conteudo; aqui so os dialogos e o disco. Salvar
+   so escreve arquivos .lqtsm. */
+let estadoArquivo = { nome: "", alterado: false };   // a pagina avisa a cada mudanca
+let podeFechar = false;
+function pastaDocumentos() {
+  const pasta = lerEstado().pastaDocumentos;
+  return pasta && fs.existsSync(pasta) ? pasta : app.getPath("documents");
+}
+function perguntarAlteracoes() {
+  const i = dialog.showMessageBoxSync(janela, {
+    type: "warning",
+    buttons: [texto("botaoSalvar"), texto("botaoDescartar"), texto("botaoCancelar")],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+    message: texto("pergunta", estadoArquivo.nome),
+    detail: texto("detalhe"),
+  });
+  return ["salvar", "descartar", "cancelar"][i];
+}
+function ligarArquivo() {
+  ipcMain.handle("arquivo:abrir", () => {
+    const r = dialog.showOpenDialogSync(janela, {
+      title: texto("abrir"),
+      defaultPath: pastaDocumentos(),
+      properties: ["openFile"],
+      filters: [{ name: texto("documento"), extensions: ["lqtsm"] }, { name: texto("latex"), extensions: ["tex"] }],
+    });
+    if (!r || !r[0]) return null;
+    const caminho = r[0];
+    gravarEstado({ pastaDocumentos: path.dirname(caminho) });
+    return { caminho, nome: path.basename(caminho), conteudo: fs.readFileSync(caminho, "utf8") };
+  });
+  ipcMain.handle("arquivo:salvar", (_e, dados) => {
+    let caminho = String((dados && dados.caminho) || "");
+    if (!/\.lqtsm$/i.test(caminho)) {
+      const r = dialog.showSaveDialogSync(janela, {
+        title: texto("salvarComo"),
+        defaultPath: path.join(pastaDocumentos(), path.basename(String((dados && dados.nome) || "documento.lqtsm"))),
+        filters: [{ name: texto("documento"), extensions: ["lqtsm"] }],
+      });
+      if (!r) return null;
+      caminho = /\.lqtsm$/i.test(r) ? r : r + ".lqtsm";
+      gravarEstado({ pastaDocumentos: path.dirname(caminho) });
+    }
+    fs.writeFileSync(caminho, String(dados.conteudo));
+    return { caminho, nome: path.basename(caminho) };
+  });
+  ipcMain.handle("arquivo:perguntar", () => perguntarAlteracoes());
+  ipcMain.on("arquivo:estado", (_e, estado) => {
+    estadoArquivo = { nome: String((estado && estado.nome) || ""), alterado: !!(estado && estado.alterado) };
+  });
+  ipcMain.on("arquivo:fechar", () => { podeFechar = true; if (janela) janela.close(); });
 }
 
 /* ---- Script injetado na pagina: reserva do navigator.clipboard ----
@@ -228,7 +295,7 @@ function criarJanela() {
     y: limites.y,
     minWidth: TAMANHO_MINIMO.width,
     minHeight: TAMANHO_MINIMO.height,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,                       // a barra de menus e a da pagina
     icon: path.join(__dirname, "build", "icon.png"),
     backgroundColor: "#fbfbfa",
     show: false,
@@ -241,10 +308,10 @@ function criarJanela() {
       devTools: DEBUG,
     },
   });
+  janela.setMenuBarVisibility(false);           // menu nativo so pelos atalhos (Alt nao o mostra)
   if (estado.janela && estado.janela.maximizada) janela.maximize();
 
-  // Titulo fixo (a pagina tem o seu proprio <title>)
-  janela.on("page-title-updated", (e) => { e.preventDefault(); janela.setTitle(texto("titulo")); });
+  // O titulo vem da pagina (nome do arquivo aberto, no idioma escolhido)
 
   // Links externos: navegador padrao, nunca dentro da janela
   janela.webContents.setWindowOpenHandler(({ url }) => {
@@ -282,7 +349,19 @@ function criarJanela() {
   janela.on("move", agendar);
   janela.on("maximize", agendar);
   janela.on("unmaximize", agendar);
-  janela.on("close", guardarJanela);
+  janela.on("close", (e) => {
+    // Alteracoes nao salvas: Salvar (a pagina salva e pede para fechar),
+    // Nao salvar (fecha; o rascunho fica) ou Cancelar
+    if (!podeFechar && estadoArquivo.alterado && process.env.EDITOR_SEM_PERGUNTA !== "1") {
+      const resposta = perguntarAlteracoes();
+      if (resposta !== "descartar") {
+        e.preventDefault();
+        if (resposta === "salvar") janela.webContents.send("arquivo:salvar-e-fechar");
+        return;
+      }
+    }
+    guardarJanela();
+  });
   janela.on("closed", () => { janela = null; });
 
   janela.once("ready-to-show", () => janela.show());
@@ -330,6 +409,7 @@ app.whenReady().then(() => {
   protocol.handle(ESQUEMA, tratarProtocolo);
   ligarDownloads(session.defaultSession);
   ligarClipboard();
+  ligarArquivo();
   instalarAtalhos();
   criarJanela();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) criarJanela(); });
