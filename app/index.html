@@ -41,10 +41,11 @@
   9. Ferramentas recentes: as 30 ultimas teclas do teclado virtual ficam na
      barra "Recentes" sob o campo e, quando o teclado abre de novo, na
      primeira linha de cada aba (o MathLive nao redesenha abas abertas).
- 10. Fonte: escolhida no seletor, vale so para o SVG e o PNG (o MathML e o
-     LaTeX nao levam fonte; o campo usa a do MathLive). Cada fonte carrega
-     o seu MathJax num <iframe> escondido, porque o MathJax nao troca de
-     fonte depois de carregado.
+ 10. Fonte: a "Fonte padrao" (topo) vale para todo passo em "Padrao"; cada
+     passo pode fixar a sua. Vale para a vista do passo (fora da edicao), o
+     SVG e o PNG (o MathML e o LaTeX nao levam fonte; em edicao o campo usa
+     a do MathLive). Cada fonte carrega o seu MathJax num <iframe>
+     escondido, porque o MathJax nao troca de fonte depois de carregado.
   ==========================================================================
 -->
 <html lang="pt-BR">
@@ -148,6 +149,9 @@
     .trilha a:hover { text-decoration: underline; }
     .trilha { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
     .tema { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+    .trilha-direita { display: flex; align-items: center; gap: 0.75rem; }
+    .fonte-padrao { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 500; }
+    .fonte-padrao select { padding: 0.15rem 0.35rem; font-size: 0.78rem; }
 
     h1 {
       margin: 0.25rem 0 0.25rem;
@@ -714,7 +718,11 @@
   <main class="pagina">
 
     <p class="trilha"><a href="../materiais.html#ferramentas">LQTSM · Materiais › Ferramentas</a>
-      <button type="button" class="discreto tema" id="btn-tema" title="Alternar tema claro, escuro ou automático">Tema: automático</button></p>
+      <span class="trilha-direita">
+        <label class="fonte-padrao">Fonte padrão
+          <select id="fonte-padrao" title="Fonte de todas as equações que seguem o padrão (na tela, no SVG e no PNG)"></select></label>
+        <button type="button" class="discreto tema" id="btn-tema" title="Alternar tema claro, escuro ou automático">Tema: automático</button>
+      </span></p>
     <h1>Editor de equações</h1>
     <p class="intro">Cada linha é um passo da demonstração: a equação à esquerda, a justificativa à direita.
       <kbd>/</kbd> cria fração, <kbd>^</kbd> e <kbd>_</kbd> criam expoente e índice, <kbd>\</kbd> abre um comando
@@ -797,7 +805,7 @@
         <span class="grupo">Baixar tudo</span>
         <button type="button" id="btn-demo-svg">SVG</button>
         <button type="button" id="btn-demo-png">PNG</button>
-        <select id="fonte-demo" title="Fonte do SVG e do PNG da demonstração" aria-label="Fonte do SVG e do PNG da demonstração"></select>
+        <span id="lugar-fonte-demo"></span>
       </div>
       <p class="status" id="status-demo" role="status" aria-live="polite"></p>
       <details class="detalhes">
@@ -1578,13 +1586,14 @@
         } else {
           b.addEventListener("click", () => {
             if (passo) ativarCampo(passo.mf);          // o textarea passa a ser este passo
-            exportar(b, item.formato, item.modo, alvoEquacao(item.formato, passo ? passo.fonte : fontePadrao()));
+            exportar(b, item.formato, item.modo, alvoEquacao(item.formato, passo ? fonteDoPasso(passo) : fontePadrao()));
           });
         }
         barra.appendChild(b);
       });
-      barra.appendChild(seletorDeFonte(passo ? passo.fonte : fontePadrao(), "Fonte deste passo (na tela, no SVG e no PNG)", (v) => {
-        if (passo) { passo.fonte = v; demonstracaoMudou(); atualizarVista(passo); }   // fica no rascunho
+      if (!passo) return barra;                      // sem MathLive: vale a fonte padrao do topo
+      barra.appendChild(seletorDeFonte(passo.fonte, "Fonte deste passo (na tela, no SVG e no PNG)", (v) => {
+        passo.fonte = v; demonstracaoMudou(); atualizarVista(passo);   // fica no rascunho
       }));
       return barra;
     }
@@ -1651,7 +1660,7 @@
       const latex = passo.latex.trim();
       if (!latex) { passo.li.classList.remove("com-vista"); return; }
       const render = coresParaRender(aplicarConvencoes(removerCaixinhas(latex), opcoesAtuais()));
-      latexParaVista(render, passo.fonte).then((svg) => {
+      latexParaVista(render, fonteDoPasso(passo)).then((svg) => {
         if (versao !== passo.versaoVista) return;
         passo.vista.replaceChildren(svg);
         passo.li.classList.add("com-vista");
@@ -1820,23 +1829,48 @@
     // MathJax, num <iframe> escondido da mesma origem, criado no 1o uso.
     const promessasMathJax = new Map();             // fonte -> Promise(MathJax)
 
-    // Cada passo tem a sua fonte; a ultima escolhida vale para os passos novos
+    /* ---------------------------------------------------------------------
+       FONTE PADRAO E FONTE DO PASSO
+       ---------------------------------------------------------------------
+       A fonte padrao (seletor no topo) vale para todo passo em "Padrao"
+       (fonte = ""). Um passo pode fixar uma fonte propria no seletor da
+       barra dele; trocar o padrao muda todos os outros de uma vez.
+       --------------------------------------------------------------------- */
     const fonteValida = (v) => (FONTES.some((f) => f.id === v) ? v : FONTES[0].id);
+    const fonteFixa = (v) => (FONTES.some((f) => f.id === v) ? v : "");      // "" = segue o padrao
+    let fonteDemo = "";                                                        // fonte da demonstracao inteira
     function fontePadrao() {
       try { return fonteValida(localStorage.getItem(CHAVE_FONTE)); } catch (e) { return FONTES[0].id; }
     }
-    function escolherFonte(fonte) {
-      try { localStorage.setItem(CHAVE_FONTE, fonte); } catch (e) { /* so nesta visita */ }
-      carregarMathJax(fonte).catch(() => { /* o erro aparece na exportacao */ });   // ja deixa pronta
-    }
+    const fonteDoPasso = (passo) => passo.fonte || fontePadrao();
+    const rotuloPadrao = () => "Padrão: " + FONTES.find((f) => f.id === fontePadrao()).rotulo;
+    const preCarregar = (fonte) => carregarMathJax(fonte).catch(() => { /* o erro aparece na exportacao */ });
+
+    // Seletor com "Padrao (...)" + as fontes; valor "" = segue o padrao
     function seletorDeFonte(valor, rotulo, aoMudar) {
       const s = document.createElement("select");
+      s.className = "seletor-fonte";
+      s.add(new Option(rotuloPadrao(), ""));
       FONTES.forEach((f) => s.add(new Option(f.rotulo, f.id)));
-      s.value = fonteValida(valor);
+      s.value = fonteFixa(valor);
       s.title = rotulo;
       s.setAttribute("aria-label", rotulo);
-      s.addEventListener("change", () => { escolherFonte(s.value); aoMudar(s.value); });
+      s.addEventListener("change", () => { if (s.value) preCarregar(s.value); aoMudar(s.value); });
       return s;
+    }
+
+    function ligarFontePadrao() {
+      const seletor = $("fonte-padrao");
+      FONTES.forEach((f) => seletor.add(new Option(f.rotulo, f.id)));
+      seletor.value = fontePadrao();
+      seletor.addEventListener("change", () => {
+        try { localStorage.setItem(CHAVE_FONTE, seletor.value); } catch (e) { /* so nesta visita */ }
+        preCarregar(seletor.value);
+        document.querySelectorAll(".seletor-fonte").forEach((s) => { s.options[0].text = rotuloPadrao(); });
+        passos.filter((p) => !p.fonte).forEach(atualizarVista);   // so os que seguem o padrao
+        mostrarStatus("Fonte padrão: " + seletor.selectedOptions[0].text + ".");
+      });
+      $("lugar-fonte-demo").replaceWith(seletorDeFonte("", "Fonte do SVG e do PNG da demonstração", (v) => { fonteDemo = v; }));
     }
 
     function carregarMathJax(fonte = fontePadrao()) {
@@ -2146,7 +2180,7 @@
     let temporizadorDemo = null;
 
     function passosSimples() {
-      return passos.map((p) => ({ latex: p.latex, comentario: p.comentario, fonte: p.fonte }));
+      return passos.map((p) => ({ latex: p.latex, comentario: p.comentario, fonteFixa: p.fonte }));
     }
 
     function salvarDemonstracao() {
@@ -2185,7 +2219,7 @@
     }
 
     // Cria o passo e o coloca na posicao 'indice' (fim, se omitido)
-    function adicionarPasso(latex = "", comentario = "", indice = passos.length, focar = false, fonte = fontePadrao()) {
+    function adicionarPasso(latex = "", comentario = "", indice = passos.length, focar = false, fonte = "") {
       if (!campoPronto) { mostrarStatus("O campo visual ainda não carregou.", true); return null; }
       const li = document.createElement("li");
       li.className = "passo";
@@ -2208,7 +2242,7 @@
       vista.className = "passo-vista";
       vista.setAttribute("aria-hidden", "true");      // o campo embaixo continua sendo o elemento acessivel
       caixaEq.appendChild(vista);
-      const passo = { latex, comentario, li, mf, input, fonte: fonteValida(fonte), vista, versaoVista: 0 };
+      const passo = { latex, comentario, li, mf, input, fonte: fonteFixa(fonte), vista, versaoVista: 0 };
       const indiceDe = () => passos.indexOf(passo);
       ligarVista(passo);
 
@@ -2285,7 +2319,7 @@
 
     function carregarPassos(lista) {
       limparDemonstracao(true);
-      (lista || []).forEach((p) => adicionarPasso(p.latex || "", p.comentario || "", undefined, false, p.fonte));
+      (lista || []).forEach((p) => adicionarPasso(p.latex || "", p.comentario || "", undefined, false, p.fonteFixa));
       if (!passos.length) adicionarPasso("", "", 0, false);
       ativarCampo(passos[0].mf);
     }
@@ -2377,7 +2411,7 @@
       return {
         texto, render: coresParaRender(renderDaDemonstracao()), original: texto,
         rotulo: "demonstração (" + passos.length + " passos)", nome: NOME_ARQUIVO_DEMO, passos: passosSimples(),
-        fonte: fonteValida($("fonte-demo").value),
+        fonte: fonteDemo || fontePadrao(),
       };
     }
 
@@ -2516,7 +2550,7 @@
       ligar("btn-demo-png", "png", "baixar", alvoDemonstracao);
       ligarDemonstracao();
       ligarCores();
-      ligarFonte();
+      ligarFontePadrao();
       $("btn-limpar-historico").addEventListener("click", () => {
         gravarHistorico([]);
         desenharHistorico();
@@ -2534,14 +2568,6 @@
           exportar(null, "latex", "copiar", alvoEquacao("latex"));   // copiar texto nao usa o botao
         }
       }, true);
-    }
-
-    // Fonte do SVG/PNG da demonstracao inteira (a de cada passo fica na barra dele)
-    function ligarFonte() {
-      const seletor = $("fonte-demo");
-      FONTES.forEach((f) => seletor.add(new Option(f.rotulo, f.id)));
-      seletor.value = fontePadrao();
-      seletor.addEventListener("change", () => escolherFonte(seletor.value));
     }
 
     async function iniciarCampo() {

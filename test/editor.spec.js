@@ -8,6 +8,7 @@
    5. copia um PNG e confere que a area de transferencia contem imagem
    6. o botao LaTeX do passo mostra/esconde o LaTeX; a fonte e por passo
    7. fora da edicao o passo mostra a equacao na fonte dele (vista MathJax)
+   8. a fonte padrao (topo) muda todos os passos em "Padrao", e so eles
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const path = require("node:path");
@@ -189,9 +190,9 @@ test("6. LaTeX escondido por passo e fonte por passo", async () => {
   await expect(painel).toBeHidden();
   // A fonte e de cada passo: muda so a do passo 2
   await passo(1).locator(".passo-barra select").selectOption("stix2");
-  await expect(passo(0).locator(".passo-barra select")).toHaveValue("tex");
-  const svg = await page.evaluate(() => latexParaSvg("x", passos[1].fonte));
-  const svgTex = await page.evaluate(() => latexParaSvg("x", passos[0].fonte));
+  await expect(passo(0).locator(".passo-barra select")).toHaveValue("");   // segue o padrao
+  const svg = await page.evaluate(() => latexParaSvg("x", fonteDoPasso(passos[1])));
+  const svgTex = await page.evaluate(() => latexParaSvg("x", fonteDoPasso(passos[0])));
   expect(svg.texto).not.toBe(svgTex.texto);   // desenhos diferentes
   // O botao de copiar LaTeX copia o passo da barra, mesmo sem estar em foco
   await passo(2).locator('[data-acao="latex"]').click();
@@ -217,4 +218,21 @@ test("7. ver/editar: fora da edicao, a equacao aparece na fonte do passo", async
   await expect(vista(0)).toBeHidden();
   // E o passo 3, que perdeu o foco, volta a mostrar a vista
   await expect(vista(2)).toBeVisible();
+});
+
+test("8. fonte padrao muda os passos em Padrao, e so eles", async () => {
+  const passo = (i) => page.locator(".passo").nth(i);
+  const vista = (i) => passo(i).locator(".passo-vista");
+  // Estado do teste 7: passo 1 fixo em Pagella, passo 2 fixo em STIX Two, passo 3 no padrao (TeX)
+  await campos().nth(0).click();                         // o passo 3 sai da edicao e mostra a vista
+  await expect(vista(2)).toBeVisible();
+  const fixo = await vista(0).innerHTML();
+  const padraoAntes = await vista(2).innerHTML();
+  await page.locator("#fonte-padrao").selectOption("asana");
+  await expect.poll(() => vista(2).innerHTML()).not.toBe(padraoAntes);   // seguiu o padrao
+  expect(await vista(1).innerHTML()).toContain("svg");
+  await campos().nth(1).click();                         // passo 1 sai da edicao
+  await expect.poll(() => vista(0).innerHTML()).toBe(fixo);              // fixo em Pagella, nao mudou
+  await expect(passo(2).locator(".passo-barra select option").first()).toHaveText("Padrão: Asana");
+  await page.locator("#fonte-padrao").selectOption("tex");
 });
