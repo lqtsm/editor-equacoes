@@ -335,6 +335,54 @@
     }
     .barra-selecao button.cor:hover { box-shadow: 0 0 0 2px var(--acento); }
     .barra-selecao .sep { width: 1px; height: 1.1rem; margin: 0 4px; background: var(--linha); }
+    .barra-selecao { max-width: min(760px, calc(100vw - 16px)); }
+    .barra-selecao button.engrenagem { color: var(--texto-suave); }
+
+    /* Janela de escolha do que aparece na barra */
+    .escolha-barra {
+      width: min(980px, calc(100vw - 32px));
+      max-height: calc(100vh - 48px);
+      padding: 1.1rem 1.25rem;
+      color: var(--texto);
+      background: var(--fundo);
+      border: 1px solid var(--linha-forte);
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    .escolha-barra::backdrop { background: rgba(0, 0, 0, 0.35); }
+    .escolha-barra h2 { margin: 0 0 0.25rem; font-size: 1.05rem; font-weight: 600; }
+    .escolha-barra-lista {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.25rem 1.25rem;
+      margin-top: 0.75rem;
+    }
+    .escolha-grupo { margin: 0; padding: 0.5rem 0 0.25rem; border: 0; border-top: 1px solid var(--linha); }
+    .escolha-grupo label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.12rem 0;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .escolha-grupo input { accent-color: var(--acento); }
+    .escolha-desenho {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 2.6rem;
+      height: 1.6rem;
+      font-size: 0.85rem;
+      border: 1px solid var(--linha);
+      border-radius: var(--raio);
+      background: var(--fundo-campo);
+    }
+    .escolha-desenho svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+    .escolha-desenho i { width: 0.6rem; height: 0.6rem; border-radius: 50%; }
+    .realce { padding: 0 2px; font-weight: 500; background: #fff27a; color: #2b2d31; }
+    button.link { padding: 0 0.2rem; font-size: inherit; color: var(--acento); text-decoration: underline; }
     .barra-selecao svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4;
       stroke-linecap: round; stroke-linejoin: round; }
 
@@ -769,7 +817,8 @@
           <span aria-hidden="true">⌨</span> Teclado de símbolos</button>
         <span class="dica"><strong>Selecione um trecho da equação</strong> para abrir a barra de formatação (cor,
           negrito, parênteses, fração…). No teclado, a seleção também vira o argumento da ferramenta
-          (integrando, radicando, numerador…).</span>
+          (integrando, radicando, numerador…).
+          <button type="button" class="discreto link" id="btn-personalizar-barra">Escolher o que aparece na barra…</button></span>
       </div>
     </div>
 
@@ -868,6 +917,20 @@
       <a href="https://www.mathjax.org/" rel="noopener">MathJax</a> (Apache 2.0).</p>
     <!-- BARRA DA SELECAO: aparece sobre o trecho selecionado (ver BARRA DA SELECAO no script) -->
     <div class="barra-selecao" id="barra-selecao" role="toolbar" aria-label="Formatar o trecho selecionado" hidden></div>
+
+    <!-- ESCOLHA DO QUE APARECE NA BARRA DA SELECAO (montada pelo script) -->
+    <dialog class="escolha-barra" id="escolha-barra" aria-labelledby="titulo-escolha-barra">
+      <h2 id="titulo-escolha-barra">Barra da seleção: o que aparece</h2>
+      <p class="dica">Marque o que você quer na barra que surge ao selecionar um trecho da equação. Vale na hora e
+        fica guardado neste computador.</p>
+      <div class="escolha-barra-lista" id="escolha-barra-lista"></div>
+      <div class="acoes">
+        <button type="button" id="btn-escolha-padrao">Restaurar o padrão</button>
+        <button type="button" id="btn-escolha-tudo">Marcar tudo</button>
+        <span class="separador"></span>
+        <button type="button" class="principal" id="btn-escolha-fechar">Fechar</button>
+      </div>
+    </dialog>
   </main>
 
   <script>
@@ -929,6 +992,7 @@
       mathml: '<path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4M9.2 3 6.8 13"/>',
       svg: '<path d="M3 12.5C5.5 3 10.5 13 13 3.5"/><rect x="1.8" y="11.3" width="2.4" height="2.4"/><rect x="11.8" y="2.3" width="2.4" height="2.4"/>',
       png: '<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2.5 11.5 6 8l3 3 2-2 2.5 2.5"/><circle cx="10.6" cy="5.9" r="1"/>',
+      engrenagem: '<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/>',
     };
     const BARRA_PASSO = [
       { acao: "ver-latex", icone: "latexVer", rotulo: "Mostrar ou esconder o LaTeX deste passo" },
@@ -1261,7 +1325,8 @@
     function inserirNoCampo(alvo, latex) {
       reinserindo = true;
       try {
-        alvo.executeCommand(["insert", latex, { selectionMode: "placeholder", format: "latex" }]);
+        // mode "math": depois de \\text o campo fica em modo texto e inseriria o LaTeX como letras
+        alvo.executeCommand(["insert", latex, { selectionMode: "placeholder", format: "latex", mode: "math" }]);
       } finally {
         reinserindo = false;
       }
@@ -1359,37 +1424,159 @@
        BARRA DA SELECAO
        ---------------------------------------------------------------------
        Como no Word: selecionar um trecho de um passo abre, logo acima dele,
-       uma barra com o que se faz com o trecho (cor, estilo, estrutura,
-       copiar). As ferramentas com #0/#@ recebem a selecao como argumento
+       uma barra com o que se faz com o trecho. O que aparece nela e escolha
+       do usuario (botao de engrenagem), a partir de CATALOGO_BARRA; de
+       fabrica, BARRA_PADRAO. As ferramentas com #0/#@ recebem a selecao como argumento
        (mesma regra do teclado virtual). A posicao vem dos retangulos que o
        MathLive desenha para a selecao (.ML__selection, no shadow DOM).
        Os botoes nao tiram o foco do campo (pointerdown com preventDefault).
        --------------------------------------------------------------------- */
-    const SEP_BARRA = { sep: true };
-    const ACOES_SELECAO = [
-      { cores: true },
-      SEP_BARRA,
-      { rotulo: "Negrito", latex: "\\boldsymbol{#0}", tex: "\\mathbf{B}" },
-      { rotulo: "Redondo (\\mathrm): descritores, unidades", latex: "\\mathrm{#0}", html: "<span style='font-family:serif'>rm</span>" },
-      { rotulo: "Palavra (\\text)", latex: "\\text{#0}", html: "abc" },
-      SEP_BARRA,
-      { rotulo: "Parênteses", latex: "\\left(#0\\right)", tex: "(\\square)" },
-      { rotulo: "Colchetes", latex: "\\left[#0\\right]", tex: "[\\square]" },
-      { rotulo: "Fração (o trecho vira o numerador)", latex: "\\frac{#0}{#?}", tex: "\\frac{\\square}{\\square}" },
-      { rotulo: "Raiz quadrada", latex: "\\sqrt{#0}", tex: "\\sqrt{\\square}" },
-      { rotulo: "Potência", latex: "#@^{#?}", tex: "\\square^{\\square}" },
-      { rotulo: "Índice", latex: "#@_{#?}", tex: "\\square_{\\square}" },
-      SEP_BARRA,
-      { rotulo: "Caixa (destaque)", latex: "\\boxed{#0}", tex: "\\boxed{x}" },
-      { rotulo: "Riscar (cancelar)", latex: "\\cancel{#0}", tex: "\\cancel{x}" },
-      { rotulo: "Chave por baixo", latex: "\\underbrace{#0}_{#?}", tex: "\\underbrace{xy}" },
-      SEP_BARRA,
-      { rotulo: "Copiar o trecho (LaTeX)", copiar: true },
+    // Catalogo de tudo o que a barra pode ter, em grupos. Cada item:
+    //   id      chave guardada na escolha do usuario (nao mudar depois de publicado)
+    //   rotulo  nome (dica do mouse e janela de escolha)
+    //   latex   o que entra no lugar do trecho (#0/#@ = o trecho, #? = caixinha)
+    //   tex     rotulo desenhado pelo MathLive  |  html: rotulo pronto
+    //   acao    acao especial (cores, realce, copiar...) em vez de latex
+    const L = String.raw;
+    const CATALOGO_BARRA = [
+      { grupo: "Cor e destaque", itens: [
+        { id: "cores", rotulo: "Cores do texto (paleta)", acao: "cores" },
+        { id: "realce", rotulo: "Marca-texto (fundo amarelo)", acao: "realce", html: "<b class='realce'>ab</b>" },
+        { id: "sem-realce", rotulo: "Tirar o marca-texto", acao: "sem-realce", html: "<s>ab</s>" },
+      ] },
+      { grupo: "Estilo da letra", itens: [
+        { id: "negrito", rotulo: "Negrito", latex: L`\boldsymbol{#0}`, tex: L`\mathbf{B}` },
+        { id: "italico", rotulo: "Itálico", latex: L`\mathit{#0}`, tex: L`\mathit{I}` },
+        { id: "redondo", rotulo: "Redondo (\\mathrm): descritores, unidades", latex: L`\mathrm{#0}`, html: "<span style='font-family:serif'>rm</span>" },
+        { id: "palavra", rotulo: "Palavra (\\text)", latex: L`\text{#0}`, html: "abc" },
+        { id: "operador", rotulo: "Nome de função (\\operatorname)", latex: L`\operatorname{#0}`, tex: L`\operatorname{op}` },
+        { id: "caligrafico", rotulo: "Caligráfico (\\mathcal)", latex: L`\mathcal{#0}`, tex: L`\mathcal{C}` },
+        { id: "conjuntos", rotulo: "Conjuntos (\\mathbb)", latex: L`\mathbb{#0}`, tex: L`\mathbb{R}` },
+        { id: "fraktur", rotulo: "Fraktur (\\mathfrak)", latex: L`\mathfrak{#0}`, tex: L`\mathfrak{g}` },
+        { id: "sem-serifa", rotulo: "Sem serifa (\\mathsf)", latex: L`\mathsf{#0}`, tex: L`\mathsf{A}` },
+        { id: "maquina", rotulo: "Máquina de escrever (\\mathtt)", latex: L`\mathtt{#0}`, tex: L`\mathtt{T}` },
+      ] },
+      { grupo: "Delimitadores", itens: [
+        { id: "parenteses", rotulo: "Parênteses", latex: L`\left(#0\right)`, tex: L`(\square)` },
+        { id: "colchetes", rotulo: "Colchetes (ou concentração)", latex: L`\left[#0\right]`, tex: L`[\square]` },
+        { id: "chaves", rotulo: "Chaves", latex: L`\left\lbrace #0\right\rbrace`, tex: L`\lbrace\square\rbrace` },
+        { id: "modulo", rotulo: "Módulo", latex: L`\left|#0\right|`, tex: L`|\square|` },
+        { id: "norma", rotulo: "Norma", latex: L`\left\Vert #0\right\Vert`, tex: L`\Vert\square\Vert` },
+        { id: "angulares", rotulo: "Média / valor esperado ⟨ ⟩", latex: L`\left\langle #0\right\rangle`, tex: L`\langle\square\rangle` },
+        { id: "piso", rotulo: "Piso", latex: L`\left\lfloor #0\right\rfloor`, tex: L`\lfloor\square\rfloor` },
+        { id: "teto", rotulo: "Teto", latex: L`\left\lceil #0\right\rceil`, tex: L`\lceil\square\rceil` },
+        { id: "avaliar", rotulo: "Avaliar entre limites", latex: L`\left.#0\right|_{#?}^{#?}`, tex: L`\square\Big|_{a}^{b}` },
+      ] },
+      { grupo: "Estrutura", itens: [
+        { id: "fracao", rotulo: "Fração (o trecho vira o numerador)", latex: L`\frac{#0}{#?}`, tex: L`\frac{\square}{\square}` },
+        { id: "fracao-den", rotulo: "Fração (o trecho vira o denominador)", latex: L`\frac{#?}{#0}`, tex: L`\frac{?}{\square}` },
+        { id: "inverso", rotulo: "Um sobre o trecho (1/x)", latex: L`\frac{1}{#0}`, tex: L`\frac{1}{\square}` },
+        { id: "raiz", rotulo: "Raiz quadrada", latex: L`\sqrt{#0}`, tex: L`\sqrt{\square}` },
+        { id: "raiz-n", rotulo: "Raiz n-ésima", latex: L`\sqrt[#?]{#0}`, tex: L`\sqrt[n]{\square}` },
+        { id: "potencia", rotulo: "Potência", latex: L`#@^{#?}`, tex: L`\square^{\square}` },
+        { id: "quadrado", rotulo: "Ao quadrado", latex: L`#@^{2}`, tex: L`\square^{2}` },
+        { id: "menos-um", rotulo: "Elevado a −1", latex: L`#@^{-1}`, tex: L`\square^{-1}` },
+        { id: "indice", rotulo: "Índice", latex: L`#@_{#?}`, tex: L`\square_{\square}` },
+        { id: "indice-potencia", rotulo: "Índice e potência", latex: L`#@_{#?}^{#?}`, tex: L`\square_{\square}^{\square}` },
+        { id: "cientifica", rotulo: "Notação científica (× 10ⁿ)", latex: L`#0\times10^{#?}`, tex: L`\square\times10^{n}` },
+      ] },
+      { grupo: "Acentos e sobrescritos", itens: [
+        { id: "vetor", rotulo: "Vetor", latex: L`\vec{#0}`, tex: L`\vec{v}` },
+        { id: "seta-sobre", rotulo: "Seta sobre o trecho", latex: L`\overrightarrow{#0}`, tex: L`\overrightarrow{AB}` },
+        { id: "chapeu", rotulo: "Operador / versor (chapéu)", latex: L`\hat{#0}`, tex: L`\hat{H}` },
+        { id: "chapeu-largo", rotulo: "Chapéu largo", latex: L`\widehat{#0}`, tex: L`\widehat{xy}` },
+        { id: "barra", rotulo: "Barra (média)", latex: L`\bar{#0}`, tex: L`\bar{x}` },
+        { id: "sobrelinha", rotulo: "Linha em cima (conjugado)", latex: L`\overline{#0}`, tex: L`\overline{xy}` },
+        { id: "sublinha", rotulo: "Sublinhado", latex: L`\underline{#0}`, tex: L`\underline{xy}` },
+        { id: "til", rotulo: "Til", latex: L`\tilde{#0}`, tex: L`\tilde{x}` },
+        { id: "ponto", rotulo: "Derivada temporal (ponto)", latex: L`\dot{#0}`, tex: L`\dot{x}` },
+        { id: "dois-pontos", rotulo: "Derivada temporal segunda", latex: L`\ddot{#0}`, tex: L`\ddot{x}` },
+        { id: "padrao", rotulo: "Estado padrão (⊖)", latex: L`#@^{\ominus}`, tex: L`\square^{\ominus}` },
+        { id: "transicao", rotulo: "Estado de transição (‡)", latex: L`#@^{\ddagger}`, tex: L`\square^{\ddagger}` },
+        { id: "adjunto", rotulo: "Adjunto (†)", latex: L`#@^{\dagger}`, tex: L`\square^{\dagger}` },
+        { id: "conjugado", rotulo: "Complexo conjugado (*)", latex: L`#@^{*}`, tex: L`\square^{*}` },
+        { id: "transposta", rotulo: "Transposta", latex: L`#@^{\mathrm{T}}`, tex: L`\square^{\mathrm{T}}` },
+      ] },
+      { grupo: "Anotações", itens: [
+        { id: "caixa", rotulo: "Caixa (destaque)", latex: L`\boxed{#0}`, tex: L`\boxed{x}` },
+        { id: "riscar", rotulo: "Riscar (cancelar)", latex: L`\cancel{#0}`, tex: L`\cancel{x}` },
+        { id: "riscar-inv", rotulo: "Riscar ao contrário", latex: L`\bcancel{#0}`, tex: L`\bcancel{x}` },
+        { id: "riscar-x", rotulo: "Riscar em X", latex: L`\xcancel{#0}`, tex: L`\xcancel{x}` },
+        { id: "chave-baixo", rotulo: "Chave por baixo (com nota)", latex: L`\underbrace{#0}_{#?}`, tex: L`\underbrace{xy}` },
+        { id: "chave-cima", rotulo: "Chave por cima (com nota)", latex: L`\overbrace{#0}^{#?}`, tex: L`\overbrace{xy}` },
+        { id: "em-cima", rotulo: "Símbolo em cima do trecho", latex: L`\overset{#?}{#0}`, tex: L`\overset{!}{=}` },
+        { id: "embaixo", rotulo: "Símbolo embaixo do trecho", latex: L`\underset{#?}{#0}`, tex: L`\underset{x}{\max}` },
+        { id: "seta-condicao", rotulo: "Seta com o trecho em cima (condição)", latex: L`\xrightarrow{#0}`, tex: L`\xrightarrow{\Delta}` },
+      ] },
+      { grupo: "Cálculo e funções", itens: [
+        { id: "derivada", rotulo: "Derivada do trecho", latex: L`\frac{\mathrm{d}#0}{\mathrm{d}#?}`, tex: L`\frac{\mathrm{d}\square}{\mathrm{d}x}` },
+        { id: "parcial", rotulo: "Derivada parcial do trecho", latex: L`\frac{\partial #0}{\partial #?}`, tex: L`\frac{\partial\square}{\partial x}` },
+        { id: "integral", rotulo: "Integral do trecho", latex: L`\int #0\,\mathrm{d}#?`, tex: L`\int\square\,\mathrm{d}x` },
+        { id: "integral-def", rotulo: "Integral definida do trecho", latex: L`\int_{#?}^{#?}#0\,\mathrm{d}#?`, tex: L`\int_a^b\square` },
+        { id: "somatorio", rotulo: "Somatório do trecho", latex: L`\sum_{#?}^{#?}#0`, tex: L`\sum\square` },
+        { id: "produtorio", rotulo: "Produtório do trecho", latex: L`\prod_{#?}^{#?}#0`, tex: L`\prod\square` },
+        { id: "limite", rotulo: "Limite do trecho", latex: L`\lim_{#?\to #?}#0`, tex: L`\lim\square` },
+        { id: "variacao", rotulo: "Variação (Δ do trecho)", latex: L`\Delta #0`, tex: L`\Delta\square` },
+        { id: "ln", rotulo: "Logaritmo natural do trecho", latex: L`\ln\left(#0\right)`, tex: L`\ln(\square)` },
+        { id: "log", rotulo: "Logaritmo decimal do trecho", latex: L`\log\left(#0\right)`, tex: L`\log(\square)` },
+        { id: "exp", rotulo: "Exponencial (e elevado ao trecho)", latex: L`\mathrm{e}^{#0}`, tex: L`\mathrm{e}^{\square}` },
+        { id: "sen", rotulo: "Seno do trecho", latex: L`\operatorname{sen}\left(#0\right)`, tex: L`\operatorname{sen}(\square)` },
+        { id: "cos", rotulo: "Cosseno do trecho", latex: L`\cos\left(#0\right)`, tex: L`\cos(\square)` },
+      ] },
+      { grupo: "Ações", itens: [
+        { id: "copiar", rotulo: "Copiar o trecho (LaTeX)", acao: "copiar", icone: "copiar" },
+        { id: "copiar-png", rotulo: "Copiar o trecho como imagem (PNG)", acao: "copiar-png", icone: "png" },
+        { id: "novo-passo", rotulo: "Novo passo com o trecho (abaixo)", acao: "novo-passo", html: "+↵" },
+        { id: "apagar", rotulo: "Apagar o trecho", acao: "apagar", html: "⌫" },
+      ] },
     ];
+    const ITENS_BARRA = new Map(CATALOGO_BARRA.flatMap((g) => g.itens.map((it) => [it.id, it])));
+    // O conjunto que vem de fabrica (o usuario muda pelo botao de engrenagem da barra)
+    const BARRA_PADRAO = ["cores", "negrito", "redondo", "palavra", "parenteses", "colchetes", "fracao", "raiz",
+      "potencia", "indice", "caixa", "riscar", "chave-baixo", "copiar"];
+    const CHAVE_BARRA = "lqtsm-editor-equacoes-barra-selecao-v1";
     let campoDaBarra = null;                         // campo cuja selecao a barra mostra
 
-    function ligarBarraSelecao() {
+    function escolhaDaBarra() {
+      try {
+        const lista = JSON.parse(localStorage.getItem(CHAVE_BARRA));
+        if (Array.isArray(lista)) return lista.filter((id) => ITENS_BARRA.has(id));
+      } catch (e) { /* padrao */ }
+      return BARRA_PADRAO.slice();
+    }
+    function gravarEscolhaDaBarra(lista) {
+      try { localStorage.setItem(CHAVE_BARRA, JSON.stringify(lista)); } catch (e) { /* so nesta visita */ }
+    }
+
+    // Rotulo de um item (o mesmo na barra e na janela de escolha)
+    function rotuloDoItem(item) {
+      if (item.icone) return icone(item.icone);
+      if (item.html) return item.html;
+      return item.tex ? rotuloDaTecla({ latex: item.tex }) : item.rotulo;
+    }
+
+    // Executa um item da barra sobre a selecao do campo
+    function usarItemDaBarra(item, botao) {
+      const alvo = campoDaBarra;
+      if (!alvo || alvo.selectionIsCollapsed) return;
+      const acoes = {
+        "realce": () => alvo.applyStyle({ backgroundColor: "yellow" }, { operation: "set" }),
+        "sem-realce": () => alvo.applyStyle({ backgroundColor: "none" }, { operation: "set" }),
+        "copiar": () => copiarTrecho(alvo),
+        "copiar-png": () => copiarTrechoComoImagem(alvo, botao),
+        "novo-passo": () => passoComTrecho(alvo),
+        "apagar": () => alvo.executeCommand("deleteBackward"),
+      };
+      if (item.acao) acoes[item.acao]();
+      else inserirNoCampo(alvo, isolarRedondoNoLatex(item.latex));   // d redondo fechado, como no teclado
+      if (item.acao !== "novo-passo") alvo.focus();
+    }
+
+    // (Re)monta a barra com a escolha do usuario, um grupo depois do outro
+    function montarBarraSelecao() {
       const barra = $("barra-selecao");
+      barra.textContent = "";
+      const escolha = new Set(escolhaDaBarra());
       const botao = (rotulo, conteudo, acao, classe) => {
         const b = document.createElement("button");
         b.type = "button";
@@ -1398,34 +1585,93 @@
         if (classe) b.className = classe;
         if (conteudo) b.innerHTML = conteudo;
         b.addEventListener("pointerdown", (e) => e.preventDefault());   // o foco fica no campo
-        b.addEventListener("click", acao);
+        b.addEventListener("click", () => acao(b));
         barra.appendChild(b);
         return b;
       };
-      ACOES_SELECAO.forEach((item) => {
-        if (item.sep) {
-          const sep = document.createElement("span");
-          sep.className = "sep";
-          barra.appendChild(sep);
-        } else if (item.cores) {
-          CORES.forEach((c) => { botao("Cor: " + c.rotulo, "", () => colorirSelecao(c.nome), "cor").style.background = c.css; });
-          botao("Sem cor", "⊘", () => colorirSelecao("none"));
-        } else if (item.copiar) {
-          botao(item.rotulo, icone("copiar"), copiarTrecho);
-        } else {
-          const rotulo = item.html || rotuloDaTecla({ latex: item.tex });
-          botao(item.rotulo, rotulo, () => {
-            const alvo = campoDaBarra;
-            if (!alvo || alvo.selectionIsCollapsed) return;
-            inserirNoCampo(alvo, item.latex);       // #0/#@ = o trecho selecionado
-            alvo.focus();
-          });
-        }
+      CATALOGO_BARRA.forEach((grupo) => {
+        const itens = grupo.itens.filter((it) => escolha.has(it.id));
+        if (!itens.length) return;
+        if (barra.childElementCount) { const sep = document.createElement("span"); sep.className = "sep"; barra.appendChild(sep); }
+        itens.forEach((item) => {
+          if (item.acao === "cores") {
+            CORES.forEach((c) => { botao("Cor: " + c.rotulo, "", () => colorirSelecao(c.nome), "cor").style.background = c.css; });
+            botao("Sem cor", "⊘", () => colorirSelecao("none"));
+          } else {
+            botao(item.rotulo, rotuloDoItem(item), (b) => usarItemDaBarra(item, b));
+          }
+        });
       });
+      const sep = document.createElement("span"); sep.className = "sep"; barra.appendChild(sep);
+      botao("Escolher o que aparece nesta barra", icone("engrenagem"), abrirEscolhaDaBarra, "engrenagem");
+      if (!barra.hidden && campoDaBarra) posicionarBarra(campoDaBarra);
+    }
+
+    function ligarBarraSelecao() {
+      montarBarraSelecao();
+      montarEscolhaDaBarra();
       // A barra acompanha o trecho ao rolar a pagina ou mudar o tamanho da janela
+      const barra = $("barra-selecao");
       const reposicionar = () => { if (!barra.hidden && campoDaBarra) posicionarBarra(campoDaBarra); };
       window.addEventListener("scroll", reposicionar, { passive: true });
       window.addEventListener("resize", reposicionar);
+    }
+
+    /* ---- Janela de escolha (o que aparece na barra) ---------------------- */
+    function montarEscolhaDaBarra() {
+      const lista = $("escolha-barra-lista");
+      lista.textContent = "";
+      const escolha = new Set(escolhaDaBarra());
+      CATALOGO_BARRA.forEach((grupo) => {
+        const caixa = document.createElement("fieldset");
+        caixa.className = "escolha-grupo";
+        const legenda = document.createElement("legend");
+        legenda.textContent = grupo.grupo;
+        caixa.appendChild(legenda);
+        grupo.itens.forEach((item) => {
+          const rotulo = document.createElement("label");
+          const marca = document.createElement("input");
+          marca.type = "checkbox";
+          marca.value = item.id;
+          marca.checked = escolha.has(item.id);
+          marca.setAttribute("aria-label", item.rotulo);   // so o nome (o desenho e enfeite)
+          marca.addEventListener("change", () => {
+            const atual = [...lista.querySelectorAll("input:checked")].map((x) => x.value);
+            gravarEscolhaDaBarra(atual);
+            montarBarraSelecao();
+          });
+          const desenho = document.createElement("span");
+          desenho.className = "escolha-desenho";
+          desenho.setAttribute("aria-hidden", "true");
+          desenho.innerHTML = item.acao === "cores"
+            ? CORES.slice(0, 4).map((c) => "<i style='background:" + c.css + "'></i>").join("")
+            : rotuloDoItem(item);
+          const nome = document.createElement("span");
+          nome.textContent = item.rotulo;
+          rotulo.append(marca, desenho, nome);
+          caixa.appendChild(rotulo);
+        });
+        lista.appendChild(caixa);
+      });
+    }
+
+    function abrirEscolhaDaBarra() {
+      esconderBarraSelecao();
+      montarEscolhaDaBarra();
+      $("escolha-barra").showModal();
+    }
+
+    function ligarJanelaDaBarra() {
+      const janela = $("escolha-barra");
+      $("btn-escolha-padrao").addEventListener("click", () => {
+        gravarEscolhaDaBarra(BARRA_PADRAO.slice()); montarEscolhaDaBarra(); montarBarraSelecao();
+      });
+      $("btn-escolha-tudo").addEventListener("click", () => {
+        gravarEscolhaDaBarra([...ITENS_BARRA.keys()]); montarEscolhaDaBarra(); montarBarraSelecao();
+      });
+      $("btn-escolha-fechar").addEventListener("click", () => janela.close());
+      janela.addEventListener("close", () => { const c = campoEmFoco(); if (c) c.focus(); });
+      $("btn-personalizar-barra").addEventListener("click", abrirEscolhaDaBarra);
     }
 
     // Chamado a cada mudanca de selecao de um campo (ver criarCampo)
@@ -1465,17 +1711,35 @@
     function colorirSelecao(nome) {
       const alvo = campoDaBarra || campoEmFoco();
       if (!alvo || alvo.selectionIsCollapsed) return;
-      alvo.applyStyle({ color: nome }, { operation: "set" });
+      alvo.applyStyle({ color: nome }, { operation: "set" });   // sem cor: "none"
       alvo.focus();
     }
 
-    async function copiarTrecho() {
-      const alvo = campoDaBarra;
-      if (!alvo || alvo.selectionIsCollapsed) return;
-      const trecho = limparLatexDoCampo(alvo.getValue(alvo.selection, "latex"));
+    const latexDoTrecho = (alvo) => limparLatexDoCampo(alvo.getValue(alvo.selection, "latex"));
+
+    async function copiarTrecho(alvo) {
+      const trecho = latexDoTrecho(alvo);
       if (await copiarTexto(trecho)) mostrarStatus("Trecho copiado: " + trecho);
       else mostrarStatus("O navegador bloqueou a cópia. Use Ctrl+C no campo.", true);
-      alvo.focus();
+    }
+
+    // O trecho como PNG, na fonte do passo e com as convencoes (como a exportacao)
+    function copiarTrechoComoImagem(alvo, botao) {
+      const passo = passos.find((p) => p.mf === alvo);
+      const trecho = latexDoTrecho(alvo);
+      const saida = aplicarConvencoes(removerCaixinhas(trecho), opcoesAtuais());
+      exportar(botao, "png", "copiar", {
+        texto: saida, render: coresParaRender(saida), original: trecho, rotulo: "trecho",
+        nome: NOME_ARQUIVO, fonte: passo ? fonteDoPasso(passo) : fontePadrao(),
+      });
+    }
+
+    // Passo novo logo abaixo, com o trecho selecionado (passo a passo de uma conta)
+    function passoComTrecho(alvo) {
+      const i = passos.findIndex((p) => p.mf === alvo);
+      const passo = passos[i];
+      adicionarPasso(latexDoTrecho(alvo), "", i + 1, true, passo ? passo.fonte : "");
+      mostrarStatus("Passo " + (i + 2) + " criado com o trecho.");
     }
 
     // Aplica as abas e liga o botao da pagina. O botao so aparece com o
@@ -1725,6 +1989,8 @@
       mf.addEventListener("input", () => requestAnimationFrame(() => caberNaLargura(mf)));
       // Barra da selecao: o MathLive redesenha a selecao no quadro seguinte
       mf.addEventListener("selection-change", () => requestAnimationFrame(() => atualizarBarraSelecao(mf)));
+      // Voltar ao campo com um trecho ainda selecionado tambem mostra a barra
+      mf.addEventListener("focusin", () => requestAnimationFrame(() => atualizarBarraSelecao(mf)));
       mf.addEventListener("focusout", () => setTimeout(() => {
         if (campoDaBarra === mf && document.activeElement !== mf) esconderBarraSelecao();
       }, 0));
@@ -2658,6 +2924,7 @@
       ligar("btn-demo-svg", "svg", "baixar", alvoDemonstracao);
       ligar("btn-demo-png", "png", "baixar", alvoDemonstracao);
       ligarDemonstracao();
+      ligarJanelaDaBarra();
       ligarFontePadrao();
       $("btn-limpar-historico").addEventListener("click", () => {
         gravarHistorico([]);

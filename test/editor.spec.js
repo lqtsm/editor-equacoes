@@ -10,6 +10,8 @@
    7. o campo de edicao ja usa a fonte do passo (fontes-edicao/)
    8. a fonte padrao (topo) muda todos os passos em "Padrao", e so eles
    9. selecionar um trecho abre a barra da selecao, acima dele
+  10. o usuario escolhe o que aparece na barra (e restaura o padrao)
+  11. todo item de LaTeX do catalogo da barra age no trecho e exporta
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const path = require("node:path");
@@ -270,4 +272,75 @@ test("9. barra da selecao: aparece sobre o trecho e age nele", async () => {
   expect(await mf.evaluate((el) => document.activeElement === el)).toBe(true);
   await page.locator(".passo-coment").first().click();
   await expect(barra).toBeHidden();
+});
+
+test("10. escolher o que aparece na barra da selecao", async () => {
+  const barra = page.locator("#barra-selecao");
+  const janela = page.locator("#escolha-barra");
+  const mf = campos().first();
+  await mf.focus();
+  await page.keyboard.press("Control+a");
+  await expect(barra).toBeVisible();
+  await expect(barra.getByRole("button", { name: "Vetor" })).toHaveCount(0);   // fora do padrao
+  // A engrenagem abre a janela de escolha
+  await barra.getByRole("button", { name: "Escolher o que aparece nesta barra" }).click();
+  await expect(janela).toBeVisible();
+  await janela.getByLabel("Parênteses", { exact: true }).uncheck();
+  await janela.getByLabel("Vetor", { exact: true }).check();
+  await janela.getByRole("button", { name: "Fechar" }).click();
+  await expect(janela).toBeHidden();
+  // A barra ja vem com a escolha nova (e ela fica guardada)
+  await mf.focus();
+  await page.keyboard.press("Control+a");
+  await expect(barra.getByRole("button", { name: "Vetor" })).toHaveCount(1);
+  await expect(barra.getByRole("button", { name: "Parênteses" })).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem(CHAVE_BARRA)))).toContain("vetor");
+  // Marcar tudo: a barra traz o catalogo inteiro (todos os grupos)
+  await page.locator("#btn-personalizar-barra").click();
+  await janela.getByRole("button", { name: "Marcar tudo" }).click();
+  await janela.getByRole("button", { name: "Fechar" }).click();
+  await mf.focus();
+  await page.keyboard.press("Control+a");
+  const total = await page.evaluate(() => CATALOGO_BARRA.flatMap((g) => g.itens).length - 1 + CORES.length + 1 + 1);   // cores viram 8 botoes; + engrenagem
+  await expect(barra.locator("button")).toHaveCount(total);
+  await expect(barra.getByRole("button", { name: "Apagar o trecho" })).toHaveCount(1);
+  await expect(barra.getByRole("button", { name: "Marca-texto (fundo amarelo)" })).toHaveCount(1);
+  // Restaurar o padrao (pelo link da pagina)
+  await page.locator("#btn-personalizar-barra").click();
+  await janela.getByRole("button", { name: "Restaurar o padrão" }).click();
+  await janela.getByRole("button", { name: "Fechar" }).click();
+  await mf.focus();
+  await page.keyboard.press("Control+a");
+  await expect(barra.getByRole("button", { name: "Parênteses" })).toHaveCount(1);
+  await expect(barra.getByRole("button", { name: "Vetor" })).toHaveCount(0);
+});
+
+test("11. todo item de LaTeX do catalogo age no trecho e exporta", async () => {
+  const falhas = await page.evaluate(async () => {
+    const mf = passos[0].mf;
+    const erros = [];
+    for (const grupo of CATALOGO_BARRA) for (const item of grupo.itens) {
+      if (!item.latex) continue;
+      mf.focus();
+      mf.setValue("ab", { silenceNotifications: true });
+      mf.executeCommand("selectAll");
+      campoDaBarra = mf;
+      usarItemDaBarra(item);
+      const resultado = removerCaixinhas(limparLatexDoCampo(mf.getValue("latex")));
+      if (!/ab|a\s*b/.test(resultado.replace(/[{}]/g, ""))) { erros.push(item.id + ": trecho sumiu -> " + resultado); continue; }
+      try { await latexParaSvg(coresParaRender(aplicarConvencoes(resultado, opcoesAtuais())), "tex"); }
+      catch (e) { erros.push(item.id + ": MathJax -> " + e.message + " em " + resultado); }
+    }
+    // Marca-texto: vira \colorbox, que o MathJax tambem exporta
+    mf.setValue("ab", { silenceNotifications: true });
+    mf.executeCommand("selectAll");
+    campoDaBarra = mf;
+    usarItemDaBarra(ITENS_BARRA.get("realce"));
+    const comRealce = limparLatexDoCampo(mf.getValue("latex"));
+    if (!comRealce.includes("colorbox")) erros.push("realce: sem colorbox -> " + comRealce);
+    try { await latexParaSvg(coresParaRender(comRealce), "tex"); } catch (e) { erros.push("realce: MathJax -> " + e.message); }
+    mf.setValue("", { silenceNotifications: true });
+    return erros;
+  });
+  expect(falhas).toEqual([]);
 });
