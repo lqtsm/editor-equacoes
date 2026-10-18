@@ -1,0 +1,74 @@
+# Gera o programa para Windows (instalador e portatil) numa maquina Windows do
+# GitHub e anexa os .exe a uma Release ja existente.
+#   - Automatico: ao enviar uma tag vX.Y.Z (a Release com esse nome deve existir
+#     ou ser criada antes; sem ela, os .exe ficam so como artefato do workflow).
+#   - Manual: Actions > Windows > Run workflow, informando a tag (ex.: v1.1.0).
+# Os .exe nao sao assinados: o Windows mostra o aviso do SmartScreen
+# ("Mais informacoes > Executar assim mesmo").
+name: Windows
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release que recebe os .exe (ex.: v1.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Dependencias (e app/vendor)
+        run: npm ci
+
+      - name: Testes no Windows
+        # Informativo: o pacote sai mesmo se algum teste falhar
+        continue-on-error: true
+        run: npx playwright test --reporter=list
+
+      - name: Gerar instalador e portatil
+        run: npm run dist:win
+
+      - name: Nomes fixos (links "latest" do site)
+        shell: bash
+        run: |
+          cd dist
+          cp editor-equacoes-lqtsm-*-setup.exe editor-equacoes-lqtsm_setup.exe
+          cp editor-equacoes-lqtsm-*-portable.exe editor-equacoes-lqtsm_portable.exe
+          sha256sum editor-equacoes-lqtsm_setup.exe editor-equacoes-lqtsm_portable.exe > SHA256SUMS-windows.txt
+          cat SHA256SUMS-windows.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/editor-equacoes-lqtsm_setup.exe
+            dist/editor-equacoes-lqtsm_portable.exe
+            dist/SHA256SUMS-windows.txt
+
+      - name: Anexar a Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/editor-equacoes-lqtsm_setup.exe dist/editor-equacoes-lqtsm_portable.exe dist/SHA256SUMS-windows.txt --clobber
+          else
+            echo "Release $TAG nao existe: os .exe ficam so no artefato."
+          fi

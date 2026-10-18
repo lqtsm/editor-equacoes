@@ -19,6 +19,11 @@ Baixe a versão mais recente em [Releases](https://github.com/lqtsm/editor-equac
   ./editor-equacoes-lqtsm_x86_64.AppImage
   ```
 
+- **Windows 10 e 11**: `editor-equacoes-lqtsm_setup.exe` (instalador) ou
+  `editor-equacoes-lqtsm_portable.exe` (roda sem instalar). Os `.exe` não são assinados:
+  na primeira vez o Windows mostra "O Windows protegeu o computador"; clique em
+  **Mais informações › Executar assim mesmo**.
+
 Só para x86_64 (64 bits, Intel/AMD). Ou use direto no navegador:
 <https://lqtsm.com.br/editor-equacoes/>.
 
@@ -57,7 +62,12 @@ posição da janela, última pasta de download) ficam em `~/.config/editor-equac
 npm run dist            # AppImage e .deb (x86_64) em dist/
 npm run dist:appimage   # só AppImage
 npm run dist:deb        # só .deb
+npm run dist:win        # Windows (instalador e portátil); precisa de Windows ou Wine
 ```
+
+Os `.exe` são gerados pelo GitHub Actions (`.github/workflows/windows.yml`), numa máquina
+Windows: ao enviar uma tag `vX.Y.Z` ou em Actions › Windows › Run workflow. Eles são anexados
+à Release da tag.
 
 Ou, de uma vez, `./instalar.sh` (`./instalar.sh deb` ou `./instalar.sh appimage`):
 roda `npm ci`, gera o pacote, instala (o `.deb` com `sudo apt install`; o AppImage em
