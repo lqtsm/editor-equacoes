@@ -389,6 +389,7 @@
       pointer-events: none;
     }
     .passo.com-vista:not(.editando) .passo-vista { display: flex; }
+    .passo.aguardando .passo-eq { visibility: hidden; }     /* ver mostrarQuandoPronto */
     .passo.ativo .passo-vista { border-color: var(--acento); }
     .passo-vista svg { max-width: 100%; height: auto; }
     .passo-vista mjx-container { margin: 0 !important; }
@@ -920,6 +921,7 @@
     const URL_FONTES_MATHLIVE = "vendor/mathlive/fonts";
     const ESPERA_MATHLIVE_MS = 12000;              // desiste do MathLive depois disso
     const ESCALA_MINIMA_CAMPO = 0.55;              // equacao longa encolhe ate 55% da fonte; depois rola
+    const ESPERA_VISTA_MS = 3000;                  // passo aparece mesmo sem a vista depois disso
 
     /* =====================================================================
        TECLADO VIRTUAL (abas proprias, no lugar das do MathLive)
@@ -1642,9 +1644,22 @@
       mf.addEventListener("focusout", () => setTimeout(() => {
         // Janela perdeu o foco (Alt+Tab): continua em edicao, o foco volta ao campo
         if (!document.hasFocus() || document.activeElement === mf) return;
-        passo.li.classList.remove("editando");
-        atualizarVista(passo);
+        // O campo so sai quando a vista nova esta pronta: a troca e num quadro
+        // so, sem mostrar a vista antiga nem piscar a fonte do MathLive
+        atualizarVista(passo).then(() => {
+          if (document.activeElement !== mf) passo.li.classList.remove("editando");
+        });
       }, 0));
+    }
+
+    // Passo que nasce fora da edicao (rascunho, importar, reabrir): fica
+    // invisivel ate a vista ficar pronta, para nao aparecer antes na fonte do
+    // MathLive. ESPERA_VISTA_MS e a rede de seguranca (MathJax lento ou fora).
+    function mostrarQuandoPronto(passo) {
+      passo.li.classList.add("aguardando");
+      const mostrar = () => passo.li.classList.remove("aguardando");
+      atualizarVista(passo).then(mostrar);
+      setTimeout(mostrar, ESPERA_VISTA_MS);
     }
 
     async function latexParaVista(latex, fonte) {
@@ -1655,14 +1670,16 @@
       return document.importNode(svg, true);
     }
 
+    // Refaz a vista; a promessa resolve quando ela esta na pagina (ou desistiu)
     function atualizarVista(passo) {
       const versao = ++passo.versaoVista;            // so a ultima pedida entra
       const latex = passo.latex.trim();
-      if (!latex) { passo.li.classList.remove("com-vista"); return; }
+      if (!latex) { passo.li.classList.remove("com-vista"); return Promise.resolve(); }
       const render = coresParaRender(aplicarConvencoes(removerCaixinhas(latex), opcoesAtuais()));
-      latexParaVista(render, fonteDoPasso(passo)).then((svg) => {
+      return latexParaVista(render, fonteDoPasso(passo)).then((svg) => {
         if (versao !== passo.versaoVista) return;
         passo.vista.replaceChildren(svg);
+        passo.vista.dataset.render = render;         // o que a vista mostra (conferir se esta em dia)
         passo.li.classList.add("com-vista");
       }, () => {
         if (versao === passo.versaoVista) passo.li.classList.remove("com-vista");
@@ -2273,7 +2290,7 @@
       passos.splice(indice, 0, passo);
       demonstracaoMudou();
       if (focar) { mf.focus(); mf.executeCommand("moveToMathfieldEnd"); }
-      else atualizarVista(passo);
+      else mostrarQuandoPronto(passo);
       if (!campoAtivo) ativarCampo(mf);
       requestAnimationFrame(() => caberNaLargura(mf));   // equacao reaberta ou importada
       return passo;
@@ -2521,8 +2538,7 @@
           if (item.passos) {
             // A demonstracao atual, se houver, vai para o historico antes de ser trocada
             if (passos.length) registrarHistorico(latexDaDemonstracao(), "demonstração (" + passos.length + " passos) · substituída", passosSimples());
-            carregarPassos(item.passos);
-            passos[0].mf.focus();
+            carregarPassos(item.passos);              // aparecem na fonte escolhida, fora da edicao
             $("titulo-demo").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
             mostrarStatus("Demonstração reaberta (" + item.passos.length + " passos).");
             return;
@@ -2588,7 +2604,12 @@
         new ResizeObserver(() => requestAnimationFrame(caberTodos)).observe($("passos"));
         const digitado = areaLatex.value;            // texto digitado antes de carregar
         if (digitado && passos.length === 1 && !passos[0].latex) { passos[0].mf.value = digitado; passos[0].latex = digitado; }
-        passos[0].mf.focus();
+        // Com equacoes, nenhum passo abre em edicao: todas aparecem na fonte
+        // escolhida. So um passo vazio (ou com o texto digitado) ja recebe o cursor.
+        if (passos.length === 1 && (digitado || !passos[0].latex.trim())) {
+          passos[0].li.classList.remove("aguardando");
+          passos[0].mf.focus();
+        }
       } catch (e) {
         // Sem MathLive: o textarea continua valendo para copiar e exportar um passo
         const aviso = $("aviso-mathlive");
@@ -2627,6 +2648,7 @@
 
     ligarEventos();
     desenharHistorico();
+    preCarregar(fontePadrao());                      // a vista dos passos precisa dele logo ao abrir
     // O MathLive e carregado com 'defer'; espera o DOM pronto para iniciar.
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", iniciarCampo);
