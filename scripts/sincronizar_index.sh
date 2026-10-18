@@ -7,7 +7,8 @@
 #   3. <script> do mathlive.min.js (CDN)                   -> vendor/
 #   4. const URL_MATHJAX                                   -> vendor/
 #   5. const URL_FONTES_MATHLIVE                           -> vendor/
-#   6. frase do rodape ("no seu navegador" -> "no seu computador")
+#   6. const URL_FONTE_MATHJAX (fontes do SVG/PNG)         -> vendor/
+#   7. frase do rodape ("no seu navegador" -> "no seu computador")
 # Uso:  scripts/sincronizar_index.sh [index.html do site]
 #       sem argumento, reaplica sobre app/index.html (idempotente).
 # Falha (exit 1) se qualquer trecho esperado nao for encontrado.
@@ -72,13 +73,17 @@ trocar "mathlive.min.js" \
 
 # 4-5. Constantes do script
 trocar "URL_MATHJAX" \
-  'const URL_MATHJAX = "https://cdn\.jsdelivr\.net/npm/mathjax@3\.2\.2/es5/tex-svg\.js";' \
-  "const URL_MATHJAX = \"$VENDOR/mathjax/es5/tex-svg.js\";"
+  'const URL_MATHJAX = "https://cdn\.jsdelivr\.net/npm/mathjax@4\.1\.3/tex-svg-nofont\.js";' \
+  "const URL_MATHJAX = \"$VENDOR/mathjax/tex-svg-nofont.js\";"
 trocar "URL_FONTES_MATHLIVE" \
   'const URL_FONTES_MATHLIVE = "https://cdn\.jsdelivr\.net/npm/mathlive@0\.110\.0/fonts";' \
   "const URL_FONTES_MATHLIVE = \"$VENDOR/mathlive/fonts\";"
 
-# 6. Rodape
+trocar "URL_FONTE_MATHJAX" \
+  'const URL_FONTE_MATHJAX = "https://cdn\.jsdelivr\.net/npm/@mathjax/mathjax-\{fonte\}-font@4\.1\.3";' \
+  "const URL_FONTE_MATHJAX = \"$VENDOR/mathjax-fontes/mathjax-{fonte}-font\";"
+
+# 7. Rodape
 trocar "frase do rodape" \
   'Tudo roda no seu navegador; nada é enviado a servidor\. O histórico fica só neste navegador\.' \
   'Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.'
@@ -89,7 +94,7 @@ if [[ "$falhas" -gt 0 ]]; then
 fi
 
 # Garantia final: nenhuma URL externa de biblioteca sobrou
-if grep -nE 'cdn\.jsdelivr\.net/npm/(mathlive|mathjax)|fonts\.googleapis\.com/css' "$DESTINO"; then
+if grep -nE 'cdn\.jsdelivr\.net/npm/(mathlive|@?mathjax)|fonts\.googleapis\.com/css' "$DESTINO"; then
   echo "ERRO: ainda ha URL de CDN no app/index.html" >&2
   exit 1
 fi

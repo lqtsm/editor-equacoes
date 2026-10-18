@@ -1,6 +1,7 @@
 /* Copia de node_modules para app/vendor so o que a pagina usa (offline):
      vendor/mathlive/  mathlive.min.js, mathlive-static.css, fonts/
-     vendor/mathjax/   es5/tex-svg.js, es5/input/tex/extensions/color.js (+ a11y, output, sre)
+     vendor/mathjax/   MathJax 4.1.3 (tex-svg-nofont.js e extensoes)
+     vendor/mathjax-fontes/  fontes TeX, STIX Two, Pagella e Asana (so SVG)
      vendor/fontes/    ibm-plex.css + .woff2 (IBM Plex Sans 400/500/600, Mono 400/500)
    Roda no postinstall e em `npm run vendor`. */
 "use strict";
@@ -9,36 +10,7 @@
 const PESOS_SANS = [400, 500, 600];
 const PESOS_MONO = [400, 500];
 const SUBCONJUNTOS = ["latin", "latin-ext"];        // acentos do portugues estao em latin-ext
-const ARQUIVOS_MATHJAX = [
-  "es5/tex-svg.js",
-  "es5/input/tex/extensions/color.js",
-  "es5/input/tex/extensions/colorv2.js",
-  "es5/input/tex/extensions/boldsymbol.js",
-  "es5/input/tex/extensions/mathtools.js",
-  "es5/input/tex/extensions/cancel.js",
-  "es5/input/tex/extensions/bbox.js",
-  "es5/input/tex/extensions/html.js",
-  "es5/input/tex/extensions/unicode.js",
-  "es5/input/tex/extensions/textmacros.js",
-  "es5/input/tex/extensions/upgreek.js",
-  "es5/input/tex/extensions/enclose.js",
-  "es5/input/tex/extensions/braket.js",
-  "es5/input/tex/extensions/physics.js",
-  "es5/input/tex/extensions/mhchem.js",
-  "es5/input/tex/extensions/bussproofs.js",
-  "es5/input/tex/extensions/action.js",
-  "es5/input/tex/extensions/centernot.js",
-  "es5/input/tex/extensions/gensymb.js",
-  "es5/input/tex/extensions/empheq.js",
-  "es5/input/tex/extensions/cases.js",
-  "es5/input/tex/extensions/setoptions.js",
-  "es5/input/tex/extensions/tagformat.js",
-  "es5/input/tex/extensions/verb.js",
-  "es5/input/tex/extensions/noundefined.js",
-  "es5/input/tex/extensions/noerrors.js",
-  "es5/input/tex/extensions/require.js",
-  "es5/input/tex/extensions/autoload.js",
-];
+const FONTES_MATHJAX = ["tex", "stix2", "pagella", "asana"];   // as do seletor da pagina (FONTES)
 
 /* ---------------- MOTOR ---------------- */
 const fs = require("node:fs");
@@ -61,16 +33,22 @@ copiar(path.join(ML, "mathlive-static.css"), path.join(VENDOR, "mathlive", "math
 copiar(path.join(ML, "mathlive-fonts.css"), path.join(VENDOR, "mathlive", "mathlive-fonts.css"));
 copiar(path.join(ML, "fonts"), path.join(VENDOR, "mathlive", "fonts"));
 
-// MathJax 3.2.2 (tex-svg + extensoes que o autoload pode pedir)
+// MathJax 4.1.3: o pacote inteiro (tex-svg-nofont + extensoes do autoload), sem os .map
+// nem o codigo so de Node; e as fontes do seletor (svg.js + svg/dynamic)
 const MJ = path.join(NM, "mathjax");
-for (const arq of ARQUIVOS_MATHJAX) copiar(path.join(MJ, arq), path.join(VENDOR, "mathjax", arq));
-copiar(path.join(MJ, "es5", "a11y"), path.join(VENDOR, "mathjax", "es5", "a11y"));
-copiar(path.join(MJ, "es5", "sre"), path.join(VENDOR, "mathjax", "es5", "sre"));
-copiar(path.join(MJ, "es5", "ui"), path.join(VENDOR, "mathjax", "es5", "ui"));
-copiar(path.join(MJ, "es5", "adaptors"), path.join(VENDOR, "mathjax", "es5", "adaptors"));
-copiar(path.join(MJ, "es5", "output", "svg"), path.join(VENDOR, "mathjax", "es5", "output", "svg"));
-copiar(path.join(MJ, "es5", "output", "svg.js"), path.join(VENDOR, "mathjax", "es5", "output", "svg.js"));
-copiar(path.join(MJ, "LICENSE"), path.join(VENDOR, "mathjax", "LICENSE"));
+fs.rmSync(path.join(VENDOR, "mathjax"), { recursive: true, force: true });   // sobras de outra versao
+fs.cpSync(MJ, path.join(VENDOR, "mathjax"), {
+  recursive: true,
+  filter: (o) => !o.endsWith(".map") && !/[\\/]node-main/.test(o) && !o.endsWith("require.mjs"),
+});
+for (const f of FONTES_MATHJAX) {
+  const pacote = `mathjax-${f}-font`;
+  const origem = path.join(NM, "@mathjax", pacote);
+  const destino = path.join(VENDOR, "mathjax-fontes", pacote);
+  copiar(path.join(origem, "svg.js"), path.join(destino, "svg.js"));
+  if (fs.existsSync(path.join(origem, "svg"))) copiar(path.join(origem, "svg"), path.join(destino, "svg"));   // a TeX nao tem partes dinamicas
+  copiar(path.join(origem, "package.json"), path.join(destino, "package.json"));   // licenca (Apache-2.0)
+}
 copiar(path.join(ML, "LICENSE.txt"), path.join(VENDOR, "mathlive", "LICENSE.txt"));
 
 // IBM Plex (fontsource): @font-face locais no lugar do Google Fonts

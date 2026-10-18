@@ -5,8 +5,10 @@
   Pagina unica e autocontida (CSS e JS inline). Bibliotecas externas so por
   CDN e com versao fixada:
     - MathLive 0.110.0 (cdn.jsdelivr.net) .......... campo de edicao visual
-    - MathJax 3.2.2, tex-svg (cdn.jsdelivr.net) ..... so na exportacao
-                                                      (MathML, SVG e PNG)
+    - MathJax 4.1.3, tex-svg (cdn.jsdelivr.net) ..... so na exportacao
+                                                      (MathML, SVG e PNG), com
+                                                      as fontes TeX, STIX Two,
+                                                      Pagella e Asana
     - IBM Plex Sans e IBM Plex Mono (Google Fonts)
 
   SUPOSICOES (o pedido deixava em aberto)
@@ -39,6 +41,10 @@
   9. Ferramentas recentes: as 30 ultimas teclas do teclado virtual ficam na
      barra "Recentes" sob o campo e, quando o teclado abre de novo, na
      primeira linha de cada aba (o MathLive nao redesenha abas abertas).
+ 10. Fonte: escolhida no seletor, vale so para o SVG e o PNG (o MathML e o
+     LaTeX nao levam fonte; o campo usa a do MathLive). Cada fonte carrega
+     o seu MathJax num <iframe> escondido, porque o MathJax nao troca de
+     fonte depois de carregado.
   ==========================================================================
 -->
 <html lang="pt-BR">
@@ -119,9 +125,8 @@
     }
 
     .pagina {
-      max-width: 960px;
       margin: 0 auto;
-      padding: 1.25rem 1rem 3rem;
+      padding: 1.25rem 1.5rem 3rem;               /* largura toda da janela */
     }
 
     a { color: var(--acento); }
@@ -221,8 +226,8 @@
       --keycap-max-width: 44px;
       --keycap-gap: 3px;
       --keycap-font-size: 15px;
-      --keycap-small-font-size: 10.5px;
-      --keycap-extra-small-font-size: 9px;
+      --keycap-small-font-size: 13px;
+      --keycap-extra-small-font-size: 10.5px;
       --keycap-shift-font-size: 10px;
       --keycap-glyph-size: 14px;
       --keyboard-toolbar-font-size: 100%;
@@ -233,6 +238,21 @@
     .MLK__toolbar .left > div { padding: 2px 8px; }
     .MLK__toolbar .right .action { width: 28px; height: 28px; }
     body.com-teclado { padding-bottom: var(--altura-teclado, 0px); }
+    /* Teclas esticadas na largura toda (a tecla larga mantem a proporcao) */
+    .ML__keyboard .MLK__rows > .MLK__row > div { flex: 1 1 0; width: auto; min-width: 0; }
+    .ML__keyboard .MLK__rows > .MLK__row > .w5 { flex-grow: 0.5; }
+    .ML__keyboard .MLK__rows > .MLK__row > .w15 { flex-grow: 1.5; }
+    .ML__keyboard .MLK__rows > .MLK__row > .w20 { flex-grow: 2; }
+    .ML__keyboard .MLK__rows > .MLK__row > .w40 { flex-grow: 4; }
+    .ML__keyboard .MLK__rows > .MLK__row > .w50 { flex-grow: 5; }
+    /* Todas as abas com a altura da mais alta (--linhas-teclado, ver
+       abasComRecentes): o teclado nao muda de tamanho ao trocar de aba */
+    .ML__keyboard .MLK__rows {
+      justify-content: flex-start;
+      min-height: calc(var(--linhas-teclado, 1) * var(--_keycap-height) + (var(--linhas-teclado, 1) - 1) * var(--_keycap-gap));
+    }
+    /* Navegacao (ultima linha) sempre no mesmo lugar, colada embaixo */
+    .ML__keyboard .MLK__rows > .MLK__row:last-child { margin-top: auto; }
 
     /* Ferramentas rapidas (recentes e cores) */
     .rapidas {
@@ -467,6 +487,17 @@
     }
     button.discreto:hover { color: var(--erro); border-color: var(--linha); }
 
+    select {
+      font: 500 0.9rem/1.2 var(--fonte-ui);
+      padding: 0.5rem 0.6rem;
+      color: var(--texto);
+      background: var(--fundo-campo);
+      border: 1px solid var(--linha-forte);
+      border-radius: var(--raio);
+      cursor: pointer;
+    }
+    .fonte-dica { margin: 0; }
+
     .separador { flex: 1 1 auto; }
     .acoes + .acoes { margin-top: 0.5rem; }
     .grupo {
@@ -694,6 +725,11 @@
         <button type="button" id="btn-svg">SVG</button>
         <button type="button" id="btn-png">PNG</button>
       </div>
+      <div class="acoes">
+        <label class="grupo" for="fonte-exportacao">Fonte</label>
+        <select id="fonte-exportacao"></select>
+        <span class="dica fonte-dica">das imagens SVG e PNG, do passo e da demonstração</span>
+      </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </section>
 
@@ -785,9 +821,20 @@
     const NOME_ARQUIVO = "equacao";                // equacao.svg, equacao.png
     const TEMPO_STATUS_MS = 2600;                  // mensagem de sucesso some depois disso
     const TEMPO_ERRO_MS = 9000;                    // mensagem de erro fica mais tempo
-    const URL_MATHJAX = "vendor/mathjax/es5/tex-svg.js";
+    const URL_MATHJAX = "vendor/mathjax/tex-svg-nofont.js";
+    // Pasta de cada fonte do MathJax ({fonte} = tex, stix2, pagella, asana)
+    const URL_FONTE_MATHJAX = "vendor/mathjax-fontes/mathjax-{fonte}-font";
+    // Fontes do SVG/PNG (a primeira e o padrao). O campo e o LaTeX nao mudam.
+    const FONTES = [
+      { id: "tex", rotulo: "TeX (clássica)" },
+      { id: "stix2", rotulo: "STIX Two" },
+      { id: "pagella", rotulo: "Pagella" },
+      { id: "asana", rotulo: "Asana" },
+    ];
+    const CHAVE_FONTE = "lqtsm-editor-equacoes-fonte-v1";
     const URL_FONTES_MATHLIVE = "vendor/mathlive/fonts";
     const ESPERA_MATHLIVE_MS = 12000;              // desiste do MathLive depois disso
+    const ESCALA_MINIMA_CAMPO = 0.55;              // equacao longa encolhe ate 55% da fonte; depois rola
 
     /* =====================================================================
        TECLADO VIRTUAL (abas proprias, no lugar das do MathLive)
@@ -1188,9 +1235,13 @@
     function abasComRecentes() {
       const abas = isolarRedondo(ABAS_TECLADO);
       const recentes = lerRecentes().slice(0, RECENTES_NO_TECLADO).map((l) => ({ ...TECLAS_POR_LATEX.get(l) }));
-      if (!recentes.length) return abas;
       const linha = recentes;                       // primeira linha de cada aba
-      return abas.map((aba) => (typeof aba === "string" ? aba : { ...aba, rows: [linha, ...aba.rows] }));
+      const comRecentes = !recentes.length ? abas
+        : abas.map((aba) => (typeof aba === "string" ? aba : { ...aba, rows: [linha, ...aba.rows] }));
+      // Altura comum: o numero de linhas da aba mais alta
+      const linhas = Math.max(...comRecentes.map((aba) => (aba.rows ? aba.rows.length : 0)));
+      document.body.style.setProperty("--linhas-teclado", String(linhas));
+      return comRecentes;
     }
 
     /* ---------------------------------------------------------------------
@@ -1392,8 +1443,26 @@
       mf.smartFence = true;
       mf.addEventListener("beforeinput", aplicarNaSelecao);   // selecao vira argumento + recentes
       mf.addEventListener("keydown", teclaFisica, true);
+      mf.addEventListener("input", () => requestAnimationFrame(() => caberNaLargura(mf)));
       return mf;
     }
+
+    /* ---------------------------------------------------------------------
+       EQUACAO LONGA: diminui a fonte do campo so o necessario para caber na
+       largura (ate ESCALA_MINIMA_CAMPO); abaixo disso o campo rola, como antes.
+       Mede no tamanho do CSS (sem o ajuste) e reduz na proporcao que falta.
+       --------------------------------------------------------------------- */
+    function caberNaLargura(mf) {
+      const conteudo = mf.shadowRoot && mf.shadowRoot.querySelector(".ML__content");
+      if (!conteudo || !mf.isConnected) return;
+      mf.style.fontSize = "";                           // volta ao tamanho do CSS
+      const base = parseFloat(getComputedStyle(mf).fontSize);
+      const falta = conteudo.clientWidth / conteudo.scrollWidth;
+      if (!(falta < 1)) return;                         // cabe: fica no tamanho normal
+      const escala = Math.max(ESCALA_MINIMA_CAMPO, falta * 0.98);
+      mf.style.fontSize = (base * escala).toFixed(1) + "px";
+    }
+    function caberTodos() { passos.forEach((p) => caberNaLargura(p.mf)); }
 
     // Teclas fisicas que o MathLive nao trata como queremos:
     // - "/" vindo de uma tecla que nao e a Slash do teclado americano (no
@@ -1502,6 +1571,7 @@
       if (!alvo) return;
       sincronizando = true;
       alvo.setValue(areaLatex.value, { silenceNotifications: true });
+      requestAnimationFrame(() => caberNaLargura(alvo));
       const p = passos.find((x) => x.mf === alvo);
       if (p) { p.latex = limparLatexDoCampo(alvo.getValue("latex")); demonstracaoMudou(); }
       sincronizando = false;
@@ -1550,35 +1620,57 @@
     /* =====================================================================
        MATHJAX (carregado so na primeira exportacao)
        ===================================================================== */
-    let promessaMathJax = null;
+    // O MathJax so aceita uma fonte por carga. Cada fonte ganha o seu
+    // MathJax, num <iframe> escondido da mesma origem, criado no 1o uso.
+    const promessasMathJax = new Map();             // fonte -> Promise(MathJax)
 
-    function carregarMathJax() {
-      if (promessaMathJax) return promessaMathJax;
-      promessaMathJax = new Promise((resolver, rejeitar) => {
-        window.MathJax = {
-          // O tex-svg ja traz o ams; boldsymbol, mathtools etc. entram sozinhos
-          // (autoload). color e carregado de inicio, por causa do \textcolor.
-          loader: { load: ["[tex]/color"] },
-          tex: { packages: { "[+]": ["color"] } },
-          svg: { fontCache: "none" },               // SVG autonomo, sem <use> globais
-          startup: {
-            typeset: false,
-            ready: () => {
-              MathJax.startup.defaultReady();
-              MathJax.startup.promise.then(() => resolver(window.MathJax), rejeitar);
+    function fonteAtual() {
+      const v = $("fonte-exportacao").value;
+      return FONTES.some((f) => f.id === v) ? v : FONTES[0].id;
+    }
+
+    function carregarMathJax(fonte = fonteAtual()) {
+      if (promessasMathJax.has(fonte)) return promessasMathJax.get(fonte);
+      const promessa = new Promise((resolver, rejeitar) => {
+        const quadro = document.createElement("iframe");
+        quadro.hidden = true;
+        quadro.tabIndex = -1;
+        quadro.setAttribute("aria-hidden", "true");
+        quadro.srcdoc = "<!DOCTYPE html><html><head></head><body></body></html>";
+        quadro.addEventListener("load", () => {
+          const janela = quadro.contentWindow;
+          const nome = "mathjax-" + fonte;
+          const config = {
+            // O tex-svg ja traz o ams; boldsymbol, mathtools etc. entram sozinhos
+            // (autoload). color e carregado de inicio, por causa do \textcolor.
+            loader: { load: ["[tex]/color"], paths: { [nome]: new URL(URL_FONTE_MATHJAX.replace("{fonte}", fonte), document.baseURI).href } },
+            tex: { packages: { "[+]": ["color"] } },
+            output: { font: nome, fontCache: "none" },   // SVG autonomo, sem <use> globais
+            // So conversao: sem menu, leitura de tela nem explorador (nada e
+            // exibido). As settings do menu sao as que de fato desligam a fala.
+            options: {
+              enableMenu: false, enableEnrichment: false, enableSpeech: false, enableBraille: false, enableExplorer: false,
+              menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false, assistiveMml: false } },
             },
-          },
-        };
-        const s = document.createElement("script");
-        s.src = URL_MATHJAX;
-        s.async = true;
-        s.onerror = () => {
-          promessaMathJax = null;                    // permite tentar de novo
-          rejeitar(new Error("MathJax"));
-        };
-        document.head.appendChild(s);
+            startup: { typeset: false },
+          };
+          // O MathJax descarta, sem aviso, uma configuracao criada fora da
+          // janela dele (confere o construtor Object): recria la dentro
+          janela.MathJax = janela.JSON.parse(JSON.stringify(config));
+          janela.MathJax.startup.ready = () => {
+            janela.MathJax.startup.defaultReady();
+            janela.MathJax.startup.promise.then(() => resolver(janela.MathJax), rejeitar);
+          };
+          const s = janela.document.createElement("script");
+          s.src = new URL(URL_MATHJAX, document.baseURI).href;
+          s.onerror = () => rejeitar(new Error("MathJax"));
+          janela.document.head.appendChild(s);
+        }, { once: true });
+        document.body.appendChild(quadro);
       });
-      return promessaMathJax;
+      promessa.catch(() => promessasMathJax.delete(fonte));   // permite tentar de novo
+      promessasMathJax.set(fonte, promessa);
+      return promessa;
     }
 
     function erroMathJax() {
@@ -1614,7 +1706,7 @@
       svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
       svg.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
       // O LaTeX vai junto, em <desc>, para saber depois de onde a figura veio
-      const desc = document.createElementNS("http://www.w3.org/2000/svg", "desc");
+      const desc = svg.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "desc");
       desc.textContent = latex;
       svg.insertBefore(desc, svg.firstChild);
       let texto = new XMLSerializer().serializeToString(svg);
@@ -1933,6 +2025,7 @@
       demonstracaoMudou();
       if (focar) { mf.focus(); mf.executeCommand("moveToMathfieldEnd"); }
       if (!campoAtivo) ativarCampo(mf);
+      requestAnimationFrame(() => caberNaLargura(mf));   // equacao reaberta ou importada
       return passo;
     }
 
@@ -2208,6 +2301,7 @@
       ligar("btn-demo-png", "png", "baixar", alvoDemonstracao);
       ligarDemonstracao();
       ligarCores();
+      ligarFonte();
       $("btn-limpar-historico").addEventListener("click", () => {
         gravarHistorico([]);
         desenharHistorico();
@@ -2227,6 +2321,18 @@
       }, true);
     }
 
+    // Seletor da fonte do SVG/PNG, lembrada entre visitas
+    function ligarFonte() {
+      const seletor = $("fonte-exportacao");
+      FONTES.forEach((f) => seletor.add(new Option(f.rotulo, f.id)));
+      try { seletor.value = localStorage.getItem(CHAVE_FONTE) || FONTES[0].id; } catch (e) { /* padrao */ }
+      if (!seletor.value) seletor.value = FONTES[0].id;
+      seletor.addEventListener("change", () => {
+        try { localStorage.setItem(CHAVE_FONTE, seletor.value); } catch (e) { /* so nesta visita */ }
+        carregarMathJax(seletor.value).catch(() => { /* o erro aparece na exportacao */ });   // ja deixa pronta
+      });
+    }
+
     async function iniciarCampo() {
       const desistir = new Promise((_, rejeitar) => setTimeout(() => rejeitar(new Error("tempo")), ESPERA_MATHLIVE_MS));
       try {
@@ -2241,6 +2347,8 @@
         $("rapidas").hidden = false;
         desenharRecentes();
         restaurarDemonstracao();                     // rascunho, ou um passo em branco
+        // Janela redimensionada: cada passo recalcula o tamanho da fonte
+        new ResizeObserver(() => requestAnimationFrame(caberTodos)).observe($("passos"));
         const digitado = areaLatex.value;            // texto digitado antes de carregar
         if (digitado && passos.length === 1 && !passos[0].latex) { passos[0].mf.value = digitado; passos[0].latex = digitado; }
         passos[0].mf.focus();
