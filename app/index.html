@@ -281,7 +281,7 @@
       text-transform: uppercase;
       color: var(--texto-suave);
     }
-    .recentes, .cores {
+    .recentes {
       display: flex;
       flex-wrap: wrap;
       gap: 0.3rem;
@@ -295,23 +295,48 @@
       background: var(--fundo-campo);
     }
     .recentes button .ML__latex { font-size: 1.05rem; }
-    .cores button {
-      width: 1.6rem;
-      height: 1.6rem;
+    /* Barra da selecao: flutua sobre o trecho selecionado (como no Word) */
+    .barra-selecao {
+      position: fixed;
+      z-index: 200;                                 /* acima do teclado virtual (105) */
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1px;
+      max-width: calc(100vw - 16px);
+      padding: 3px 5px;
+      background: var(--fundo-campo);
+      border: 1px solid var(--linha-forte);
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+    .barra-selecao button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.75rem;
+      height: 1.75rem;
+      padding: 0 0.3rem;
+      font-size: 0.85rem;
+      color: var(--texto);
+      border-color: transparent;
+    }
+    .barra-selecao button:hover { background: var(--acento-suave); border-color: var(--linha); }
+    .barra-selecao button .ML__latex { font-size: 0.95rem; }
+    .barra-selecao button.cor {
+      min-width: 0;
+      width: 1.05rem;
+      height: 1.05rem;
+      margin: 0 1px;
       padding: 0;
+      border: 2px solid var(--fundo-campo);
       border-radius: 50%;
-      border: 2px solid var(--fundo);
       box-shadow: 0 0 0 1px var(--linha-forte);
     }
-    .cores button.sem-cor {
-      width: auto;
-      height: auto;
-      padding: 0.2rem 0.55rem;
-      border-radius: var(--raio);
-      font-size: 0.82rem;
-      box-shadow: none;
-      border: 1px solid var(--linha-forte);
-    }
+    .barra-selecao button.cor:hover { box-shadow: 0 0 0 2px var(--acento); }
+    .barra-selecao .sep { width: 1px; height: 1.1rem; margin: 0 4px; background: var(--linha); }
+    .barra-selecao svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4;
+      stroke-linecap: round; stroke-linejoin: round; }
 
     /* Demonstracao */
     .demo { margin-top: 1.25rem; }
@@ -731,22 +756,19 @@
       LaTeX, <kbd>Enter</kbd> abre um passo novo abaixo e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> copia o LaTeX do passo.
       Para uma equação só, use um passo só.</p>
 
-    <!-- FERRAMENTAS RAPIDAS: recentes, cor e teclado (agem no passo em foco) -->
+    <!-- FERRAMENTAS RAPIDAS: recentes e teclado (agem no passo em foco); a cor
+         e o resto do que se faz com um trecho ficam na barra da selecao -->
     <div class="rapidas" id="rapidas" hidden>
       <div class="rapidas-linha" id="linha-recentes" hidden>
         <span class="rotulo-inline">Recentes</span>
         <div class="recentes" id="recentes" role="group" aria-label="Últimas ferramentas usadas"></div>
       </div>
       <div class="rapidas-linha">
-        <span class="rotulo-inline">Cor da seleção</span>
-        <div class="cores" id="cores" role="group" aria-label="Cor do trecho selecionado"></div>
-      </div>
-      <div class="rapidas-linha">
         <span class="rotulo-inline">Teclado</span>
         <button type="button" id="btn-teclado" aria-pressed="false" hidden>
           <span aria-hidden="true">⌨</span> Teclado de símbolos</button>
-        <span class="dica">Abas: básico, funções, cálculo, grego, físico-química, quântica, relações, matrizes e
-          texto. <strong>Selecione um trecho e escolha a ferramenta</strong>: a seleção vira o argumento
+        <span class="dica"><strong>Selecione um trecho da equação</strong> para abrir a barra de formatação (cor,
+          negrito, parênteses, fração…). No teclado, a seleção também vira o argumento da ferramenta
           (integrando, radicando, numerador…).</span>
       </div>
     </div>
@@ -844,6 +866,8 @@
     <p class="rodape">Tudo roda no seu computador; nada é enviado a servidor. O histórico fica neste computador.
       Campo de edição: <a href="https://cortexjs.io/mathlive/" rel="noopener">MathLive</a> (MIT). Exportação:
       <a href="https://www.mathjax.org/" rel="noopener">MathJax</a> (Apache 2.0).</p>
+    <!-- BARRA DA SELECAO: aparece sobre o trecho selecionado (ver BARRA DA SELECAO no script) -->
+    <div class="barra-selecao" id="barra-selecao" role="toolbar" aria-label="Formatar o trecho selecionado" hidden></div>
   </main>
 
   <script>
@@ -1332,34 +1356,125 @@
     }
 
     /* ---------------------------------------------------------------------
-       COR DA SELECAO
+       BARRA DA SELECAO
+       ---------------------------------------------------------------------
+       Como no Word: selecionar um trecho de um passo abre, logo acima dele,
+       uma barra com o que se faz com o trecho (cor, estilo, estrutura,
+       copiar). As ferramentas com #0/#@ recebem a selecao como argumento
+       (mesma regra do teclado virtual). A posicao vem dos retangulos que o
+       MathLive desenha para a selecao (.ML__selection, no shadow DOM).
+       Os botoes nao tiram o foco do campo (pointerdown com preventDefault).
        --------------------------------------------------------------------- */
-    function ligarCores() {
-      const caixa = $("cores");
-      const criar = (rotulo, css, nome, classe) => {
+    const SEP_BARRA = { sep: true };
+    const ACOES_SELECAO = [
+      { cores: true },
+      SEP_BARRA,
+      { rotulo: "Negrito", latex: "\\boldsymbol{#0}", tex: "\\mathbf{B}" },
+      { rotulo: "Redondo (\\mathrm): descritores, unidades", latex: "\\mathrm{#0}", html: "<span style='font-family:serif'>rm</span>" },
+      { rotulo: "Palavra (\\text)", latex: "\\text{#0}", html: "abc" },
+      SEP_BARRA,
+      { rotulo: "Parênteses", latex: "\\left(#0\\right)", tex: "(\\square)" },
+      { rotulo: "Colchetes", latex: "\\left[#0\\right]", tex: "[\\square]" },
+      { rotulo: "Fração (o trecho vira o numerador)", latex: "\\frac{#0}{#?}", tex: "\\frac{\\square}{\\square}" },
+      { rotulo: "Raiz quadrada", latex: "\\sqrt{#0}", tex: "\\sqrt{\\square}" },
+      { rotulo: "Potência", latex: "#@^{#?}", tex: "\\square^{\\square}" },
+      { rotulo: "Índice", latex: "#@_{#?}", tex: "\\square_{\\square}" },
+      SEP_BARRA,
+      { rotulo: "Caixa (destaque)", latex: "\\boxed{#0}", tex: "\\boxed{x}" },
+      { rotulo: "Riscar (cancelar)", latex: "\\cancel{#0}", tex: "\\cancel{x}" },
+      { rotulo: "Chave por baixo", latex: "\\underbrace{#0}_{#?}", tex: "\\underbrace{xy}" },
+      SEP_BARRA,
+      { rotulo: "Copiar o trecho (LaTeX)", copiar: true },
+    ];
+    let campoDaBarra = null;                         // campo cuja selecao a barra mostra
+
+    function ligarBarraSelecao() {
+      const barra = $("barra-selecao");
+      const botao = (rotulo, conteudo, acao, classe) => {
         const b = document.createElement("button");
         b.type = "button";
         b.title = rotulo;
         b.setAttribute("aria-label", rotulo);
-        if (classe) b.className = classe; else b.style.background = css;
-        if (classe) b.textContent = rotulo;
-        b.addEventListener("pointerdown", (e) => e.preventDefault());
-        b.addEventListener("click", () => colorirSelecao(nome));
-        caixa.appendChild(b);
+        if (classe) b.className = classe;
+        if (conteudo) b.innerHTML = conteudo;
+        b.addEventListener("pointerdown", (e) => e.preventDefault());   // o foco fica no campo
+        b.addEventListener("click", acao);
+        barra.appendChild(b);
+        return b;
       };
-      CORES.forEach((c) => criar(c.rotulo, c.css, c.nome));
-      criar("sem cor", "", "none", "sem-cor");
+      ACOES_SELECAO.forEach((item) => {
+        if (item.sep) {
+          const sep = document.createElement("span");
+          sep.className = "sep";
+          barra.appendChild(sep);
+        } else if (item.cores) {
+          CORES.forEach((c) => { botao("Cor: " + c.rotulo, "", () => colorirSelecao(c.nome), "cor").style.background = c.css; });
+          botao("Sem cor", "⊘", () => colorirSelecao("none"));
+        } else if (item.copiar) {
+          botao(item.rotulo, icone("copiar"), copiarTrecho);
+        } else {
+          const rotulo = item.html || rotuloDaTecla({ latex: item.tex });
+          botao(item.rotulo, rotulo, () => {
+            const alvo = campoDaBarra;
+            if (!alvo || alvo.selectionIsCollapsed) return;
+            inserirNoCampo(alvo, item.latex);       // #0/#@ = o trecho selecionado
+            alvo.focus();
+          });
+        }
+      });
+      // A barra acompanha o trecho ao rolar a pagina ou mudar o tamanho da janela
+      const reposicionar = () => { if (!barra.hidden && campoDaBarra) posicionarBarra(campoDaBarra); };
+      window.addEventListener("scroll", reposicionar, { passive: true });
+      window.addEventListener("resize", reposicionar);
+    }
+
+    // Chamado a cada mudanca de selecao de um campo (ver criarCampo)
+    function atualizarBarraSelecao(mf) {
+      const barra = $("barra-selecao");
+      if (mf.selectionIsCollapsed || document.activeElement !== mf) {
+        if (campoDaBarra === mf || !mf.isConnected) esconderBarraSelecao();
+        return;
+      }
+      campoDaBarra = mf;
+      barra.hidden = false;
+      posicionarBarra(mf);
+    }
+
+    function esconderBarraSelecao() {
+      $("barra-selecao").hidden = true;
+      campoDaBarra = null;
+    }
+
+    // Acima do trecho selecionado, centrada; sem espaco em cima, vai embaixo
+    function posicionarBarra(mf) {
+      const barra = $("barra-selecao");
+      const retangulos = [...mf.shadowRoot.querySelectorAll(".ML__selection")].map((r) => r.getBoundingClientRect())
+        .filter((r) => r.width > 0);
+      const area = retangulos.length ? {
+        left: Math.min(...retangulos.map((r) => r.left)), right: Math.max(...retangulos.map((r) => r.right)),
+        top: Math.min(...retangulos.map((r) => r.top)), bottom: Math.max(...retangulos.map((r) => r.bottom)),
+      } : mf.getBoundingClientRect();
+      const larg = barra.offsetWidth, alt = barra.offsetHeight, margem = 8;
+      let topo = area.top - alt - margem;
+      if (topo < margem) topo = area.bottom + margem;
+      const esquerda = Math.max(margem, Math.min((area.left + area.right) / 2 - larg / 2, window.innerWidth - larg - margem));
+      barra.style.left = Math.round(esquerda) + "px";
+      barra.style.top = Math.round(topo) + "px";
     }
 
     function colorirSelecao(nome) {
-      const alvo = campoEmFoco();
-      if (!alvo) return;
-      if (alvo.selectionIsCollapsed) {
-        mostrarStatus("Selecione um trecho da equação (arraste ou Shift+setas) e escolha a cor.", true);
-        alvo.focus();
-        return;
-      }
+      const alvo = campoDaBarra || campoEmFoco();
+      if (!alvo || alvo.selectionIsCollapsed) return;
       alvo.applyStyle({ color: nome }, { operation: "set" });
+      alvo.focus();
+    }
+
+    async function copiarTrecho() {
+      const alvo = campoDaBarra;
+      if (!alvo || alvo.selectionIsCollapsed) return;
+      const trecho = limparLatexDoCampo(alvo.getValue(alvo.selection, "latex"));
+      if (await copiarTexto(trecho)) mostrarStatus("Trecho copiado: " + trecho);
+      else mostrarStatus("O navegador bloqueou a cópia. Use Ctrl+C no campo.", true);
       alvo.focus();
     }
 
@@ -1608,6 +1723,11 @@
       mf.addEventListener("beforeinput", aplicarNaSelecao);   // selecao vira argumento + recentes
       mf.addEventListener("keydown", teclaFisica, true);
       mf.addEventListener("input", () => requestAnimationFrame(() => caberNaLargura(mf)));
+      // Barra da selecao: o MathLive redesenha a selecao no quadro seguinte
+      mf.addEventListener("selection-change", () => requestAnimationFrame(() => atualizarBarraSelecao(mf)));
+      mf.addEventListener("focusout", () => setTimeout(() => {
+        if (campoDaBarra === mf && document.activeElement !== mf) esconderBarraSelecao();
+      }, 0));
       return mf;
     }
 
@@ -2538,7 +2658,6 @@
       ligar("btn-demo-svg", "svg", "baixar", alvoDemonstracao);
       ligar("btn-demo-png", "png", "baixar", alvoDemonstracao);
       ligarDemonstracao();
-      ligarCores();
       ligarFontePadrao();
       $("btn-limpar-historico").addEventListener("click", () => {
         gravarHistorico([]);
@@ -2570,6 +2689,7 @@
         MathfieldElement.soundsDirectory = null;     // sem cliques de teclado
         campoPronto = true;
         configurarTeclado();
+        ligarBarraSelecao();                         // rotulos desenhados pelo MathLive: so depois dele
         $("rapidas").hidden = false;
         desenharRecentes();
         restaurarDemonstracao();                     // rascunho, ou um passo em branco

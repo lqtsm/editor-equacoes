@@ -9,6 +9,7 @@
    6. o botao LaTeX do passo mostra/esconde o LaTeX; a fonte e por passo
    7. o campo de edicao ja usa a fonte do passo (fontes-edicao/)
    8. a fonte padrao (topo) muda todos os passos em "Padrao", e so eles
+   9. selecionar um trecho abre a barra da selecao, acima dele
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const path = require("node:path");
@@ -237,4 +238,36 @@ test("8. fonte padrao muda os passos em Padrao, e so eles", async () => {
   await expect(page.locator(".passo").nth(2).locator(".passo-barra select option").first()).toHaveText("Padrão: Asana");
   await page.locator("#fonte-padrao").selectOption("tex");
   await expect.poll(async () => (await fonteDoCampo(2)).primeira).toBe("KaTeX_Math");
+});
+
+test("9. barra da selecao: aparece sobre o trecho e age nele", async () => {
+  const barra = page.locator("#barra-selecao");
+  await page.locator("#btn-demo-limpar").click();
+  const mf = campos().first();
+  await mf.focus();
+  await page.keyboard.type("a+b=c");
+  await expect(barra).toBeHidden();                          // sem selecao, sem barra
+  // Seleciona "a+b" (Home e Shift+Direita x3)
+  await page.keyboard.press("Home");
+  for (let k = 0; k < 3; k++) await page.keyboard.press("Shift+ArrowRight");
+  await expect(barra).toBeVisible();
+  // A barra fica acima do trecho, sem cobri-lo
+  const pos = await page.evaluate(() => {
+    const b = document.getElementById("barra-selecao").getBoundingClientRect();
+    const sel = [...passos[0].mf.shadowRoot.querySelectorAll(".ML__selection")].map((r) => r.getBoundingClientRect());
+    return { baseBarra: b.bottom, topoSelecao: Math.min(...sel.map((r) => r.top)) };
+  });
+  expect(pos.baseBarra).toBeLessThanOrEqual(pos.topoSelecao);
+  // Parenteses: o trecho vira o argumento
+  await barra.getByRole("button", { name: "Parênteses" }).click();
+  await expect.poll(latexDoPasso).toBe("\\left(a+b\\right)=c");
+  // Cor: seleciona tudo e pinta de vermelho
+  await page.keyboard.press("Control+a");
+  await expect(barra).toBeVisible();
+  await barra.getByRole("button", { name: "Cor: vermelho" }).click();
+  await expect.poll(latexDoPasso).toContain("red");
+  // O foco continua no campo; sair do campo esconde a barra
+  expect(await mf.evaluate((el) => document.activeElement === el)).toBe(true);
+  await page.locator(".passo-coment").first().click();
+  await expect(barra).toBeHidden();
 });
