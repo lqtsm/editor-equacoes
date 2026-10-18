@@ -6,6 +6,7 @@
    3. cria dois passos com Enter
    4. exporta o LaTeX align da demonstracao e compara com o esperado
    5. copia um PNG e confere que a area de transferencia contem imagem
+   6. o botao LaTeX do passo mostra/esconde o LaTeX; a fonte e por passo
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const path = require("node:path");
@@ -158,17 +159,40 @@ test("5. copiar PNG deixa uma imagem na area de transferencia", async () => {
     new MutationObserver(() => { const t = document.getElementById("status").textContent; if (t) window.__status.push(t); })
       .observe(document.getElementById("status"), { childList: true, characterData: true, subtree: true });
   });
-  await page.locator("#btn-copiar-png").click();
+  await page.locator(".passo").first().locator('[data-acao="copiar-png"]').click();
   // O MathJax e carregado na primeira exportacao (de vendor/, sem rede)
   await expect.poll(() => page.evaluate(() => window.__status.join("\n")), { timeout: 30000 }).toContain("PNG copiado");
   expect(await page.evaluate(() => window.lqtsmNativo.temImagem())).toBe(true);
   expect(await app.evaluate(({ clipboard }) => clipboard.availableFormats())).toContain("image/png");
   // E o SVG: texto com <svg ...> na area de transferencia
-  await page.locator("#btn-copiar-svg").click();
+  await page.locator(".passo").first().locator('[data-acao="copiar-svg"]').click();
   await expect.poll(() => page.evaluate(() => window.__status.join("\n")), { timeout: 30000 }).toContain("SVG copiado");
   expect(await app.evaluate(({ clipboard }) => clipboard.availableFormats())).toContain("image/svg+xml");
   const svg = await page.evaluate(() => window.lqtsmNativo.lerTexto());
   expect(svg).toMatch(/^<\?xml version="1.0" encoding="UTF-8" standalone="no"\?>\n<svg /);
   expect(svg).toContain('width="');
   expect(svg).toContain("#000000");
+});
+
+test("6. LaTeX escondido por passo e fonte por passo", async () => {
+  const passo = (i) => page.locator(".passo").nth(i);
+  const painel = page.locator("#painel-latex");
+  // Comeca escondido; o botao do passo 2 abre o LaTeX logo abaixo dele
+  await expect(painel).toBeHidden();
+  await passo(1).locator('[data-acao="ver-latex"]').click();
+  await expect(passo(1).locator("#painel-latex")).toBeVisible();
+  await expect(page.locator("#n-passo")).toHaveText("2");
+  expect(await latexDoPasso()).toBe("2x=2y");
+  // O mesmo botao fecha
+  await passo(1).locator('[data-acao="ver-latex"]').click();
+  await expect(painel).toBeHidden();
+  // A fonte e de cada passo: muda so a do passo 2
+  await passo(1).locator(".passo-barra select").selectOption("stix2");
+  await expect(passo(0).locator(".passo-barra select")).toHaveValue("tex");
+  const svg = await page.evaluate(() => latexParaSvg("x", passos[1].fonte));
+  const svgTex = await page.evaluate(() => latexParaSvg("x", passos[0].fonte));
+  expect(svg.texto).not.toBe(svgTex.texto);   // desenhos diferentes
+  // O botao de copiar LaTeX copia o passo da barra, mesmo sem estar em foco
+  await passo(2).locator('[data-acao="latex"]').click();
+  await expect.poll(() => page.evaluate(() => window.lqtsmNativo.lerTexto())).toBe("x=y");
 });

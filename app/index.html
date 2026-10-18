@@ -397,6 +397,48 @@
     .passo-botoes button:hover { color: var(--texto); border-color: var(--linha-forte); }
     .passo-botoes button:disabled { opacity: 0.3; cursor: default; }
     .passo-botoes .apagar:hover { color: var(--erro); }
+
+    /* Barra do passo, sob o comentario: icones de copiar e baixar (o nome
+       aparece ao passar o mouse) e a fonte do SVG/PNG, por extenso */
+    .passo-barra {
+      grid-column: 2;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1px;
+      padding: 2px 0 0;
+    }
+    .passo-barra button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      padding: 0;
+      color: var(--texto-suave);
+      border-color: transparent;
+    }
+    .passo-barra button:hover { color: var(--acento); border-color: var(--linha-forte); }
+    .passo-barra button[aria-pressed="true"] { color: var(--acento); background: var(--acento-suave); }
+    .passo-barra svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4;
+      stroke-linecap: round; stroke-linejoin: round; }
+    .passo-barra .marca { display: inline-flex; padding: 0 1px 0 6px; color: var(--linha-forte); }
+    .passo-barra .marca svg { width: 13px; height: 13px; }
+    .passo-barra select {
+      margin-left: auto;
+      padding: 0.1rem 0.3rem;
+      font-size: 0.75rem;
+      color: var(--texto-suave);
+      border-color: var(--linha);
+    }
+    .passo:not(.ativo) .passo-barra { opacity: 0.55; }
+    .passo:not(.ativo) .passo-barra:hover, .passo:not(.ativo) .passo-barra:focus-within { opacity: 1; }
+
+    /* LaTeX do passo: aberto pela barra, logo abaixo do passo em foco */
+    .painel-latex { grid-column: 2; margin-top: 0.35rem; }
+    .painel-latex .rotulo { margin-bottom: 0.2rem; }
+    .painel-latex textarea { min-height: 2.6rem; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+    .passos .painel-latex .rotulo { display: none; }     /* dentro do passo, o numero ja esta ao lado */
     .opcoes--demo { margin-top: 0.9rem; }
     .importar { margin-top: 0.75rem; }
     .importar .acoes { margin-top: 0.5rem; }
@@ -496,7 +538,6 @@
       border-radius: var(--raio);
       cursor: pointer;
     }
-    .fonte-dica { margin: 0; }
 
     .separador { flex: 1 1 auto; }
     .acoes + .acoes { margin-top: 0.5rem; }
@@ -703,34 +744,16 @@
           <button type="button" class="discreto" id="btn-importar-fechar">Fechar</button>
         </div>
       </div>
-    </section>
-
-    <!-- PASSO EM FOCO: LaTeX e exportacao de um passo -->
-    <section class="bloco" aria-labelledby="titulo-passo">
-      <label class="rotulo" for="latex" id="titulo-passo">LaTeX do passo <span id="n-passo">1</span></label>
-      <textarea id="latex" spellcheck="false" autocomplete="off" autocapitalize="off"
-        placeholder="\Delta_{\mathrm{r}}G^\ominus=-nFE^\ominus"></textarea>
-      <p class="dica">O passo em foco e este LaTeX ficam sempre iguais: edite qualquer um dos dois. As convenções
-        abaixo só mudam o que é copiado ou exportado.</p>
-      <div class="acoes" role="group" aria-label="Copiar o passo em foco">
-        <span class="grupo">Copiar passo</span>
-        <button type="button" class="principal" id="btn-latex">LaTeX</button>
-        <button type="button" id="btn-equation">equation</button>
-        <button type="button" id="btn-mathml">MathML</button>
-        <button type="button" id="btn-copiar-svg">SVG</button>
-        <button type="button" id="btn-copiar-png">PNG</button>
-      </div>
-      <div class="acoes" role="group" aria-label="Baixar o passo em foco">
-        <span class="grupo">Baixar passo</span>
-        <button type="button" id="btn-svg">SVG</button>
-        <button type="button" id="btn-png">PNG</button>
-      </div>
-      <div class="acoes">
-        <label class="grupo" for="fonte-exportacao">Fonte</label>
-        <select id="fonte-exportacao"></select>
-        <span class="dica fonte-dica">das imagens SVG e PNG, do passo e da demonstração</span>
-      </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <!-- LaTeX DO PASSO EM FOCO: escondido; o botao "LaTeX" da barra de um
+           passo o abre logo abaixo daquele passo (ver posicionarPainelLatex).
+           Sem MathLive, fica aqui, aberto, com a sua propria barra. -->
+      <div class="painel-latex" id="painel-latex" hidden>
+        <label class="rotulo" for="latex" id="titulo-passo">LaTeX do passo <span id="n-passo">1</span></label>
+        <textarea id="latex" spellcheck="false" autocomplete="off" autocapitalize="off" rows="2"
+          placeholder="\Delta_{\mathrm{r}}G^\ominus=-nFE^\ominus"></textarea>
+      </div>
     </section>
 
     <!-- DEMONSTRACAO INTEIRA -->
@@ -753,6 +776,7 @@
         <span class="grupo">Baixar tudo</span>
         <button type="button" id="btn-demo-svg">SVG</button>
         <button type="button" id="btn-demo-png">PNG</button>
+        <select id="fonte-demo" title="Fonte do SVG e do PNG da demonstração" aria-label="Fonte do SVG e do PNG da demonstração"></select>
       </div>
       <p class="status" id="status-demo" role="status" aria-live="polite"></p>
       <details class="detalhes">
@@ -831,7 +855,39 @@
       { id: "pagella", rotulo: "Pagella" },
       { id: "asana", rotulo: "Asana" },
     ];
-    const CHAVE_FONTE = "lqtsm-editor-equacoes-fonte-v1";
+    const CHAVE_FONTE = "lqtsm-editor-equacoes-fonte-v1";          // ultima fonte escolhida (padrao dos passos novos)
+    const CHAVE_LATEX_ABERTO = "lqtsm-editor-equacoes-latex-aberto-v1";
+
+    /* ---------------------------------------------------------------------
+       BARRA DE CADA PASSO (sob o comentario)
+       ---------------------------------------------------------------------
+       Icones sem texto; o nome vai no title (dica do mouse) e no aria-label.
+       "marca" e um icone so de leitura que abre cada grupo (copiar, baixar).
+       Desenhos em 16x16, so traco (stroke), na cor do texto.
+       --------------------------------------------------------------------- */
+    const ICONES = {
+      latexVer: '<path d="M2.5 4h11M2.5 8h11M2.5 12h7"/>',
+      copiar: '<rect x="4" y="3" width="8.5" height="11" rx="1.5"/><path d="M6.3 3V1.8h3.9V3"/>',
+      baixar: '<path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 14h10"/>',
+      latex: '<path d="M6 2.5c-1.4 0-2 .6-2 1.9v1.8c0 .9-.5 1.3-1.4 1.3.9 0 1.4.4 1.4 1.3v1.8c0 1.3.6 1.9 2 1.9M10 2.5c1.4 0 2 .6 2 1.9v1.8c0 .9.5 1.3 1.4 1.3-.9 0-1.4.4-1.4 1.3v1.8c0 1.3-.6 1.9-2 1.9"/>',
+      equation: '<path d="M5 2.5H3v11h2M11 2.5h2v11h-2"/><path d="M6.2 7h3.6M6.2 9.4h3.6"/>',
+      mathml: '<path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4M9.2 3 6.8 13"/>',
+      svg: '<path d="M3 12.5C5.5 3 10.5 13 13 3.5"/><rect x="1.8" y="11.3" width="2.4" height="2.4"/><rect x="11.8" y="2.3" width="2.4" height="2.4"/>',
+      png: '<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2.5 11.5 6 8l3 3 2-2 2.5 2.5"/><circle cx="10.6" cy="5.9" r="1"/>',
+    };
+    const BARRA_PASSO = [
+      { acao: "ver-latex", icone: "latexVer", rotulo: "Mostrar ou esconder o LaTeX deste passo" },
+      { marca: "copiar", rotulo: "Copiar" },
+      { acao: "latex", formato: "latex", modo: "copiar", icone: "latex", rotulo: "Copiar LaTeX (Ctrl+Enter)" },
+      { acao: "equation", formato: "equation", modo: "copiar", icone: "equation", rotulo: "Copiar LaTeX em \\begin{equation}" },
+      { acao: "mathml", formato: "mathml", modo: "copiar", icone: "mathml", rotulo: "Copiar MathML (Word, LibreOffice)" },
+      { acao: "copiar-svg", formato: "svg", modo: "copiar", icone: "svg", rotulo: "Copiar SVG (Inkscape)" },
+      { acao: "copiar-png", formato: "png", modo: "copiar", icone: "png", rotulo: "Copiar PNG (imagem)" },
+      { marca: "baixar", rotulo: "Baixar" },
+      { acao: "baixar-svg", formato: "svg", modo: "baixar", icone: "svg", rotulo: "Baixar SVG" },
+      { acao: "baixar-png", formato: "png", modo: "baixar", icone: "png", rotulo: "Baixar PNG" },
+    ];
+    const icone = (nome) => '<svg viewBox="0 0 16 16" aria-hidden="true">' + ICONES[nome] + "</svg>";
     const URL_FONTES_MATHLIVE = "vendor/mathlive/fonts";
     const ESPERA_MATHLIVE_MS = 12000;              // desiste do MathLive depois disso
     const ESCALA_MINIMA_CAMPO = 0.55;              // equacao longa encolhe ate 55% da fonte; depois rola
@@ -1431,9 +1487,85 @@
       passos.forEach((p) => p.li.classList.toggle("ativo", p.mf === mf));
       const i = passos.findIndex((p) => p.mf === mf);
       $("n-passo").textContent = i >= 0 ? String(i + 1) : "";
+      areaLatex.setAttribute("aria-label", "LaTeX do passo " + (i + 1));
       sincronizando = true;
       areaLatex.value = limparLatexDoCampo(mf.getValue("latex"));
       sincronizando = false;
+      posicionarPainelLatex();
+    }
+
+    /* ---------------------------------------------------------------------
+       LaTeX DO PASSO (escondido; o botao da barra mostra/esconde)
+       ---------------------------------------------------------------------
+       Ha um so textarea (#latex), sempre igual ao passo em foco. Aberto, ele
+       vai para dentro do <li> desse passo, logo abaixo da barra. Antes de
+       um <li> sair da pagina, o painel volta para a secao (guardarPainel).
+       --------------------------------------------------------------------- */
+    let latexAberto = false;
+    try { latexAberto = localStorage.getItem(CHAVE_LATEX_ABERTO) === "1"; } catch (e) { /* fechado */ }
+
+    function posicionarPainelLatex() {
+      if (!campoPronto) return;
+      const painel = $("painel-latex");
+      const ativo = passos.find((p) => p.mf === campoAtivo);
+      if (ativo && painel.parentNode !== ativo.li) ativo.li.appendChild(painel);
+      painel.hidden = !(ativo && latexAberto);
+      passos.forEach((p) => {
+        const b = p.li.querySelector('[data-acao="ver-latex"]');
+        if (b) b.setAttribute("aria-pressed", String(latexAberto && p === ativo));
+      });
+    }
+
+    function guardarPainel(li) {
+      const painel = $("painel-latex");
+      if (li.contains(painel)) { painel.hidden = true; $("status").after(painel); }
+    }
+
+    // No passo em foco, abre/fecha; em outro passo, passa o foco para ele e abre
+    function alternarLatex(passo) {
+      if (passo.mf !== campoAtivo) { ativarCampo(passo.mf); latexAberto = true; }
+      else latexAberto = !latexAberto;
+      try { localStorage.setItem(CHAVE_LATEX_ABERTO, latexAberto ? "1" : "0"); } catch (e) { /* so nesta visita */ }
+      posicionarPainelLatex();
+    }
+
+    // Barra de icones de um passo (passo = null: a do LaTeX sem MathLive)
+    function criarBarra(passo) {
+      const barra = document.createElement("div");
+      barra.className = "passo-barra";
+      barra.setAttribute("role", "toolbar");
+      barra.setAttribute("aria-label", "Copiar e baixar o passo");
+      BARRA_PASSO.forEach((item) => {
+        if (item.marca) {
+          const m = document.createElement("span");
+          m.className = "marca";
+          m.title = item.rotulo;
+          m.innerHTML = icone(item.marca);
+          barra.appendChild(m);
+          return;
+        }
+        if (item.acao === "ver-latex" && !passo) return;
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.acao = item.acao;
+        b.title = item.rotulo;
+        b.setAttribute("aria-label", item.rotulo);
+        b.innerHTML = icone(item.icone);
+        if (item.acao === "ver-latex") {
+          b.setAttribute("aria-pressed", "false");
+          b.addEventListener("click", () => alternarLatex(passo));
+        } else {
+          b.addEventListener("click", () => {
+            if (passo) ativarCampo(passo.mf);          // o textarea passa a ser este passo
+            exportar(b, item.formato, item.modo, alvoEquacao(item.formato, passo ? passo.fonte : fontePadrao()));
+          });
+        }
+        barra.appendChild(b);
+      });
+      barra.appendChild(seletorDeFonte(passo ? passo.fonte : fontePadrao(), "Fonte do SVG e do PNG deste passo", (v) => {
+        if (passo) { passo.fonte = v; demonstracaoMudou(); }   // fica no rascunho
+      }));
+      return barra;
     }
 
     // Todo <math-field> da pagina nasce aqui
@@ -1624,12 +1756,26 @@
     // MathJax, num <iframe> escondido da mesma origem, criado no 1o uso.
     const promessasMathJax = new Map();             // fonte -> Promise(MathJax)
 
-    function fonteAtual() {
-      const v = $("fonte-exportacao").value;
-      return FONTES.some((f) => f.id === v) ? v : FONTES[0].id;
+    // Cada passo tem a sua fonte; a ultima escolhida vale para os passos novos
+    const fonteValida = (v) => (FONTES.some((f) => f.id === v) ? v : FONTES[0].id);
+    function fontePadrao() {
+      try { return fonteValida(localStorage.getItem(CHAVE_FONTE)); } catch (e) { return FONTES[0].id; }
+    }
+    function escolherFonte(fonte) {
+      try { localStorage.setItem(CHAVE_FONTE, fonte); } catch (e) { /* so nesta visita */ }
+      carregarMathJax(fonte).catch(() => { /* o erro aparece na exportacao */ });   // ja deixa pronta
+    }
+    function seletorDeFonte(valor, rotulo, aoMudar) {
+      const s = document.createElement("select");
+      FONTES.forEach((f) => s.add(new Option(f.rotulo, f.id)));
+      s.value = fonteValida(valor);
+      s.title = rotulo;
+      s.setAttribute("aria-label", rotulo);
+      s.addEventListener("change", () => { escolherFonte(s.value); aoMudar(s.value); });
+      return s;
     }
 
-    function carregarMathJax(fonte = fonteAtual()) {
+    function carregarMathJax(fonte = fontePadrao()) {
       if (promessasMathJax.has(fonte)) return promessasMathJax.get(fonte);
       const promessa = new Promise((resolver, rejeitar) => {
         const quadro = document.createElement("iframe");
@@ -1679,8 +1825,8 @@
     }
 
     // Converte o LaTeX em <svg> autonomo (string), pronto para arquivo
-    async function latexParaSvg(latex) {
-      const MJ = await carregarMathJax();
+    async function latexParaSvg(latex, fonte) {
+      const MJ = await carregarMathJax(fonte);
       const no = await MJ.tex2svgPromise(latex, { display: true });
       const svg = no.querySelector("svg");
       const erro = no.querySelector("[data-mjx-error]");
@@ -1773,8 +1919,8 @@
        ===================================================================== */
 
     // Gera o PNG (fundo transparente, ESCALA_PNG x) a partir do SVG do MathJax
-    async function latexParaPng(latex) {
-      const svg = await latexParaSvg(latex);
+    async function latexParaPng(latex, fonte) {
+      const svg = await latexParaSvg(latex, fonte);
       const imagem = new Image();
       const url = URL.createObjectURL(new Blob([svg.texto], { type: "image/svg+xml" }));
       try {
@@ -1841,12 +1987,12 @@
         ocupado(botao, async () => {
           try {
             if (formato === "svg") {
-              const svg = await latexParaSvg(alvo.render);
+              const svg = await latexParaSvg(alvo.render, alvo.fonte);
               baixar(new Blob([svg.texto], { type: "image/svg+xml" }), nome + ".svg");
               mostrarStatus("SVG baixado.");
               registrar(alvo, "SVG baixado");
             } else {
-              const png = await latexParaPng(alvo.render);
+              const png = await latexParaPng(alvo.render, alvo.fonte);
               baixar(png.blob, nome + ".png");
               mostrarStatus("PNG baixado (" + png.largura + " × " + png.altura + " px).");
               registrar(alvo, "PNG baixado");
@@ -1867,7 +2013,7 @@
         }
         ocupado(botao, async () => {
           let dimensoes = "";
-          const promessa = latexParaPng(alvo.render).then((png) => {
+          const promessa = latexParaPng(alvo.render, alvo.fonte).then((png) => {
             dimensoes = png.largura + " × " + png.altura + " px";
             return png.blob;
           });
@@ -1886,7 +2032,7 @@
       // SVG vai como imagem (image/svg+xml, Chrome/Edge recentes) e tambem como
       // texto: o Inkscape cola o codigo SVG como desenho editavel.
       ocupado(botao, async () => {
-        const promessa = latexParaSvg(alvo.render);
+        const promessa = latexParaSvg(alvo.render, alvo.fonte);
         const comoTexto = () => promessa.then((svg) => new Blob([svg.texto], { type: "text/plain" }));
         try {
           if (podeCopiarImagem()) {
@@ -1908,12 +2054,12 @@
       });
     }
 
-    // Alvo da equacao unica (campo principal)
-    function alvoEquacao(formato) {
+    // Alvo do passo em foco (o LaTeX do textarea), na fonte pedida
+    function alvoEquacao(formato, fonte = fontePadrao()) {
       const eq = exigirEquacao();
       if (!eq) return null;
       const texto = formato === "equation" ? "\\begin{equation}\n  " + eq.saida + "\n\\end{equation}" : eq.saida;
-      return { texto, render: coresParaRender(eq.saida), original: eq.original, rotulo: "", nome: NOME_ARQUIVO };
+      return { texto, render: coresParaRender(eq.saida), original: eq.original, rotulo: "", nome: NOME_ARQUIVO, fonte };
     }
 
     // No LaTeX ficam os nomes do xcolor (red, blue...); no SVG/PNG entram os
@@ -1936,7 +2082,7 @@
     let temporizadorDemo = null;
 
     function passosSimples() {
-      return passos.map((p) => ({ latex: p.latex, comentario: p.comentario }));
+      return passos.map((p) => ({ latex: p.latex, comentario: p.comentario, fonte: p.fonte }));
     }
 
     function salvarDemonstracao() {
@@ -1975,7 +2121,7 @@
     }
 
     // Cria o passo e o coloca na posicao 'indice' (fim, se omitido)
-    function adicionarPasso(latex = "", comentario = "", indice = passos.length, focar = false) {
+    function adicionarPasso(latex = "", comentario = "", indice = passos.length, focar = false, fonte = fontePadrao()) {
       if (!campoPronto) { mostrarStatus("O campo visual ainda não carregou.", true); return null; }
       const li = document.createElement("li");
       li.className = "passo";
@@ -1994,7 +2140,7 @@
       const botoes = document.createElement("div");
       botoes.className = "passo-botoes";
 
-      const passo = { latex, comentario, li, mf, input };
+      const passo = { latex, comentario, li, mf, input, fonte: fonteValida(fonte) };
       const indiceDe = () => passos.indexOf(passo);
 
       botoes.append(
@@ -2002,14 +2148,14 @@
         botaoPasso("descer", "↓", "Mover para baixo", () => moverPasso(indiceDe(), +1)),
         botaoPasso("duplicar", "⧉", "Copiar este passo para a linha de baixo", () => {
           const i = indiceDe();
-          adicionarPasso(passo.latex, "", i + 1, true);
+          adicionarPasso(passo.latex, "", i + 1, true, passo.fonte);
         }),
         botaoPasso("apagar", "✕", "Remover este passo", () => removerPasso(indiceDe())),
       );
       const rodape = document.createElement("div");
       rodape.className = "passo-rodape";
       rodape.append(input, botoes);
-      li.append(n, caixaEq, rodape);
+      li.append(n, caixaEq, rodape, criarBarra(passo));
 
       mf.addEventListener("input", () => {
         passo.latex = limparLatexDoCampo(mf.getValue("latex"));
@@ -2032,6 +2178,7 @@
     function removerPasso(i) {
       if (i < 0) return;
       const [p] = passos.splice(i, 1);
+      guardarPainel(p.li);
       p.li.remove();
       if (!passos.length) adicionarPasso("", "", 0, false);
       if (p.mf === campoAtivo) {
@@ -2055,7 +2202,7 @@
     }
 
     function limparDemonstracao(silencioso = false) {
-      passos.forEach((p) => p.li.remove());
+      passos.forEach((p) => { guardarPainel(p.li); p.li.remove(); });
       passos = [];
       campoAtivo = null;
       campo = null;
@@ -2068,7 +2215,7 @@
 
     function carregarPassos(lista) {
       limparDemonstracao(true);
-      (lista || []).forEach((p) => adicionarPasso(p.latex || "", p.comentario || ""));
+      (lista || []).forEach((p) => adicionarPasso(p.latex || "", p.comentario || "", undefined, false, p.fonte));
       if (!passos.length) adicionarPasso("", "", 0, false);
       ativarCampo(passos[0].mf);
     }
@@ -2160,6 +2307,7 @@
       return {
         texto, render: coresParaRender(renderDaDemonstracao()), original: texto,
         rotulo: "demonstração (" + passos.length + " passos)", nome: NOME_ARQUIVO_DEMO, passos: passosSimples(),
+        fonte: fonteValida($("fonte-demo").value),
       };
     }
 
@@ -2286,13 +2434,7 @@
     function ligarEventos() {
       const ligar = (id, formato, modo, alvo) =>
         $(id).addEventListener("click", (e) => exportar(e.currentTarget, formato, modo, alvo(formato)));
-      ligar("btn-latex", "latex", "copiar", alvoEquacao);
-      ligar("btn-equation", "equation", "copiar", alvoEquacao);
-      ligar("btn-mathml", "mathml", "copiar", alvoEquacao);
-      ligar("btn-copiar-svg", "svg", "copiar", alvoEquacao);
-      ligar("btn-copiar-png", "png", "copiar", alvoEquacao);
-      ligar("btn-svg", "svg", "baixar", alvoEquacao);
-      ligar("btn-png", "png", "baixar", alvoEquacao);
+      // Os botoes de cada passo sao ligados na barra do passo (criarBarra)
       ligar("btn-demo-align", "align", "copiar", alvoDemonstracao);
       ligar("btn-demo-mathml", "mathml", "copiar", alvoDemonstracao);
       ligar("btn-demo-copiar-svg", "svg", "copiar", alvoDemonstracao);
@@ -2316,21 +2458,17 @@
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
           e.preventDefault();
           e.stopPropagation();
-          exportar($("btn-latex"), "latex", "copiar", alvoEquacao("latex"));
+          exportar(null, "latex", "copiar", alvoEquacao("latex"));   // copiar texto nao usa o botao
         }
       }, true);
     }
 
-    // Seletor da fonte do SVG/PNG, lembrada entre visitas
+    // Fonte do SVG/PNG da demonstracao inteira (a de cada passo fica na barra dele)
     function ligarFonte() {
-      const seletor = $("fonte-exportacao");
+      const seletor = $("fonte-demo");
       FONTES.forEach((f) => seletor.add(new Option(f.rotulo, f.id)));
-      try { seletor.value = localStorage.getItem(CHAVE_FONTE) || FONTES[0].id; } catch (e) { /* padrao */ }
-      if (!seletor.value) seletor.value = FONTES[0].id;
-      seletor.addEventListener("change", () => {
-        try { localStorage.setItem(CHAVE_FONTE, seletor.value); } catch (e) { /* so nesta visita */ }
-        carregarMathJax(seletor.value).catch(() => { /* o erro aparece na exportacao */ });   // ja deixa pronta
-      });
+      seletor.value = fontePadrao();
+      seletor.addEventListener("change", () => escolherFonte(seletor.value));
     }
 
     async function iniciarCampo() {
@@ -2359,6 +2497,9 @@
         aviso.textContent = "Não foi possível carregar o campo visual (MathLive). Verifique a conexão ou se o site " +
           "bloqueia cdn.jsdelivr.net. Enquanto isso, digite o LaTeX no campo abaixo: copiar e exportar continuam funcionando.";
         $("n-passo").textContent = "";
+        const painel = $("painel-latex");
+        painel.hidden = false;                       // sem MathLive, o LaTeX fica sempre a vista
+        painel.appendChild(criarBarra(null));
         areaLatex.focus();
       }
     }
