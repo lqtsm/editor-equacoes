@@ -7,7 +7,7 @@
    4. exporta o LaTeX align da demonstracao e compara com o esperado
    5. copia um PNG e confere que a area de transferencia contem imagem
    6. o botao LaTeX do passo mostra/esconde o LaTeX; a fonte e por passo
-   7. fora da edicao o passo mostra a equacao na fonte dele (vista MathJax)
+   7. o campo de edicao ja usa a fonte do passo (fontes-edicao/)
    8. a fonte padrao (topo) muda todos os passos em "Padrao", e so eles
    ===================================================================== */
 const { test, expect, _electron: electron } = require("@playwright/test");
@@ -199,40 +199,42 @@ test("6. LaTeX escondido por passo e fonte por passo", async () => {
   await expect.poll(() => page.evaluate(() => window.lqtsmNativo.lerTexto())).toBe("x=y");
 });
 
-test("7. ver/editar: fora da edicao, a equacao aparece na fonte do passo", async () => {
-  const passo = (i) => page.locator(".passo").nth(i);
-  const vista = (i) => passo(i).locator(".passo-vista");
-  // Passo 3 em edicao; o passo 1 (fora da edicao) mostra a vista em SVG
-  await campos().nth(2).click();
-  await expect(passo(2)).toHaveClass(/editando/);
-  await expect(vista(2)).toBeHidden();
-  await expect(vista(0)).toBeVisible();
-  await expect(vista(0).locator("svg")).toHaveCount(1);
-  // Trocar a fonte do passo 1 redesenha a vista com outra fonte
-  const antes = await vista(0).innerHTML();
-  await passo(0).locator(".passo-barra select").selectOption("pagella");
-  await expect.poll(() => vista(0).innerHTML()).not.toBe(antes);
-  // Clicar na vista passa o clique ao campo: entra em edicao e a vista some
-  await vista(0).click({ force: true });
-  await expect(passo(0)).toHaveClass(/editando/);
-  await expect(vista(0)).toBeHidden();
-  // E o passo 3, que perdeu o foco, volta a mostrar a vista
-  await expect(vista(2)).toBeVisible();
+// Familia de fonte que o campo do passo i usa para as variaveis (italico),
+// e se essa fonte ja carregou de fontes-edicao/
+async function fonteDoCampo(i) {
+  return page.evaluate(async (i) => {
+    await document.fonts.ready;
+    const el = passos[i].mf.shadowRoot.querySelector(".ML__mathit");
+    const familia = el ? getComputedStyle(el).fontFamily : "";
+    const primeira = familia.split(",")[0].trim().replace(/"/g, "");
+    const carregada = [...document.fonts].some((f) => f.family.replace(/"/g, "") === primeira && f.status === "loaded");
+    return { familia, primeira, carregada };
+  }, i);
+}
+
+test("7. o campo de edicao ja usa a fonte do passo", async () => {
+  // Estado do teste 6: passo 2 fixo em STIX Two, passos 1 e 3 no padrao (TeX)
+  expect((await fonteDoCampo(0)).primeira).toBe("KaTeX_Math");          // TeX: a fonte do MathLive
+  const stix = await fonteDoCampo(1);
+  expect(stix.primeira).toBe("Edicao STIX");
+  expect(stix.carregada).toBe(true);                                     // o arquivo veio de fontes-edicao/
+  await page.locator(".passo").nth(0).locator(".passo-barra select").selectOption("pagella");
+  await expect.poll(async () => (await fonteDoCampo(0)).primeira).toBe("Edicao Pagella");
+  expect((await fonteDoCampo(0)).carregada).toBe(true);
+  // Digitar continua funcionando com a fonte trocada
+  await campos().nth(0).focus();
+  await page.keyboard.type("+z");
+  await expect.poll(latexDoPasso).toBe("x=y+z");
 });
 
 test("8. fonte padrao muda os passos em Padrao, e so eles", async () => {
-  const passo = (i) => page.locator(".passo").nth(i);
-  const vista = (i) => passo(i).locator(".passo-vista");
-  // Estado do teste 7: passo 1 fixo em Pagella, passo 2 fixo em STIX Two, passo 3 no padrao (TeX)
-  await campos().nth(0).click();                         // o passo 3 sai da edicao e mostra a vista
-  await expect(vista(2)).toBeVisible();
-  const fixo = await vista(0).innerHTML();
-  const padraoAntes = await vista(2).innerHTML();
+  // Passo 1 fixo em Pagella, passo 2 fixo em STIX Two, passo 3 no padrao
   await page.locator("#fonte-padrao").selectOption("asana");
-  await expect.poll(() => vista(2).innerHTML()).not.toBe(padraoAntes);   // seguiu o padrao
-  expect(await vista(1).innerHTML()).toContain("svg");
-  await campos().nth(1).click();                         // passo 1 sai da edicao
-  await expect.poll(() => vista(0).innerHTML()).toBe(fixo);              // fixo em Pagella, nao mudou
-  await expect(passo(2).locator(".passo-barra select option").first()).toHaveText("Padrão: Asana");
+  await expect.poll(async () => (await fonteDoCampo(2)).primeira).toBe("Edicao Pagella");   // Asana: italico da Pagella
+  await expect.poll(() => page.evaluate(() => passos[2].mf.shadowRoot.querySelector("style[data-fonte-edicao]").textContent)).toContain("Edicao Asana");
+  expect((await fonteDoCampo(0)).primeira).toBe("Edicao Pagella");       // fixo: nao mudou
+  expect((await fonteDoCampo(1)).primeira).toBe("Edicao STIX");          // fixo: nao mudou
+  await expect(page.locator(".passo").nth(2).locator(".passo-barra select option").first()).toHaveText("Padrão: Asana");
   await page.locator("#fonte-padrao").selectOption("tex");
+  await expect.poll(async () => (await fonteDoCampo(2)).primeira).toBe("KaTeX_Math");
 });

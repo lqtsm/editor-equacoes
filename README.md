@@ -8,6 +8,7 @@ trocas de URL (bibliotecas e fontes locais) e da frase do rodapé.
 main.js                 processo principal: protocolo app://, janela, downloads, links, clipboard
 preload.js              contextBridge (reserva de área de transferência)
 app/index.html          a página do site, sincronizada por scripts/sincronizar_index.sh
+app/fontes-edicao/      fontes do campo de edição (STIX Two, Pagella, Asana), copiadas do site
 app/vendor/             MathLive 0.110.0, MathJax 4.1.3 + fontes (TeX, STIX Two, Pagella, Asana),
                         IBM Plex (gerado no npm install)
 scripts/copiar_vendor.js   copia de node_modules para app/vendor (postinstall)
